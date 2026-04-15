@@ -87,18 +87,20 @@ class AnalyticsService:
 
     async def _requests_by_status(self) -> list[dict]:
         """Count of requests per status."""
-        statuses = ["PENDIENTE", "EN_PROGRESO", "CRITICO", "COMPLETADO"]
+        statuses = ["PENDIENTE", "EN_PROGRESO", "CRITICO", "COMPLETADO", "RECHAZADO"]
         status_labels = {
             "PENDIENTE": "Pendiente",
             "EN_PROGRESO": "En Progreso",
             "CRITICO": "Crítico",
             "COMPLETADO": "Completado",
+            "RECHAZADO": "Rechazado",
         }
         status_colors = {
             "PENDIENTE": "#94a3b8",
             "EN_PROGRESO": "#fd761a",
             "CRITICO": "#ff5250",
             "COMPLETADO": "#10b981",
+            "RECHAZADO": "#ef4444",
         }
 
         items = []

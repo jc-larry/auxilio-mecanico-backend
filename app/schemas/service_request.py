@@ -25,6 +25,7 @@ class Status(str, Enum):
     EN_PROGRESO = "EN_PROGRESO"
     CRITICO = "CRITICO"
     COMPLETADO = "COMPLETADO"
+    RECHAZADO = "RECHAZADO"
 
 
 class Priority(str, Enum):
