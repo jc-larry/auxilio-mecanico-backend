@@ -1,4 +1,4 @@
-# Backend - Sistema de Gestión de Servicios Mecánicos
+# Backend - Auxilio Mecánico
 
 ## Objetivos
 
