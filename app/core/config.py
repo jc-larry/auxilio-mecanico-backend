@@ -19,6 +19,21 @@ class Settings(BaseSettings):
     # CORS
     allowed_origins: list[str] = ["http://localhost:4200"]
 
+    # Anthropic (Claude)
+    anthropic_api_key: str = ""
+    anthropic_model: str = "claude-sonnet-4-20250514"
+
+    # Cloudinary
+    cloudinary_cloud_name: str = ""
+    cloudinary_api_key: str = ""
+    cloudinary_api_secret: str = ""
+
+    # MercadoPago
+    mercadopago_access_token: str = ""
+    mercadopago_back_urls_success: str = "https://rapidrescue.app/payment/success"
+    mercadopago_back_urls_failure: str = "https://rapidrescue.app/payment/failure"
+    mercadopago_back_urls_pending: str = "https://rapidrescue.app/payment/pending"
+
     class Config:
         env_file = ".env"
 

@@ -6,7 +6,16 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
 from app.core.database import init_db
-from app.routers import analytics, auth, inventory, mechanics, service_requests
+from app.routers import (
+    analytics,
+    auth,
+    inventory,
+    mechanics,
+    payments,
+    ranking,
+    service_requests,
+    uploads,
+)
 
 settings = get_settings()
 
@@ -39,6 +48,9 @@ def create_app() -> FastAPI:
     app.include_router(mechanics.router, prefix="/api/v1")
     app.include_router(inventory.router, prefix="/api/v1")
     app.include_router(analytics.router, prefix="/api/v1")
+    app.include_router(ranking.router, prefix="/api/v1")
+    app.include_router(uploads.router, prefix="/api/v1")
+    app.include_router(payments.router, prefix="/api/v1")
 
     @app.get("/health")
     async def health_check() -> dict[str, str]:
