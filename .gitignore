@@ -26,3 +26,15 @@ htmlcov/
 # Databases (if using local SQLite)
 *.sqlite3
 *.db
+
+# Alembic migrations
+__pycache__/
+alembic.ini
+migrations/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Uvicorn
+uvicorn.pid
