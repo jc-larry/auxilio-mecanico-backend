@@ -1,10 +1,17 @@
-import math
 from datetime import datetime, timezone
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
-from app.models.service_request import ServiceRequest
+from app.models.solicitud_servicio import SolicitudServicio, HistorialEstadoSolicitud
+from app.models.cliente import Cliente
+from app.models.usuario import Usuario
+from app.models.vehiculo import Vehiculo
+from app.models.tipo_servicio import TipoServicio
+from app.models.mecanico import Mecanico
+from app.models.taller import Taller
+from app.models.enums import EstadoSolicitud
 from app.schemas.service_request import (
     ServiceRequestCreate,
     ServiceRequestStats,
@@ -19,33 +26,131 @@ class ServiceRequestService:
     async def _generate_code(self) -> str:
         """Auto-generate sequential code like SR-0001, SR-0002..."""
         result = await self.db.execute(
-            select(func.count(ServiceRequest.id))
+            select(func.count(SolicitudServicio.id))
         )
         count = result.scalar_one()
         return f"SR-{count + 1:04d}"
 
-    async def create(self, data: ServiceRequestCreate, user_id: int) -> ServiceRequest:
-        code = await self._generate_code()
-        sr = ServiceRequest(
-            code=code,
-            client_name=data.client_name,
-            vehicle_info=data.vehicle_info,
-            service_type=data.service_type.value,
-            description=data.description,
-            location=data.location,
-            priority=data.priority.value,
-            status="PENDIENTE",
-            progress=0,
-            user_id=user_id,
+    async def _get_or_create_cliente(self, name: str) -> Cliente:
+        """Busca un cliente por nombre de usuario o crea uno nuevo."""
+        # Buscar usuario por nombre
+        user_result = await self.db.execute(select(Usuario).where(Usuario.nombre == name))
+        user = user_result.scalar_one_or_none()
+
+        if not user:
+            # Crear usuario básico
+            user = Usuario(
+                nombre=name,
+                username=name.lower().replace(" ", "."),
+                email=f"{name.lower().replace(' ', '.')}@example.com",
+                hashed_password="legacy_password",
+                estado=True
+            )
+            self.db.add(user)
+            await self.db.flush()
+
+        # Buscar cliente asociado
+        client_result = await self.db.execute(select(Cliente).where(Cliente.usuario_id == user.id))
+        cliente = client_result.scalar_one_or_none()
+
+        if not cliente:
+            cliente = Cliente(usuario_id=user.id)
+            self.db.add(cliente)
+            await self.db.flush()
+
+        return cliente
+
+    async def _get_or_create_vehiculo(self, cliente_id: int, info: str) -> Vehiculo:
+        """Busca un vehículo por info o crea uno nuevo."""
+        # Parsear info (ej: "Toyota Corolla Gris")
+        parts = info.split(" ")
+        marca = parts[0] if len(parts) > 0 else "Genérica"
+        modelo = parts[1] if len(parts) > 1 else "Genérico"
+        
+        veh_result = await self.db.execute(
+            select(Vehiculo).where(Vehiculo.cliente_id == cliente_id, Vehiculo.marca == marca, Vehiculo.modelo == modelo)
+        )
+        vehiculo = veh_result.scalar_one_or_none()
+
+        if not vehiculo:
+            # Crear vehículo ficticio
+            vehiculo = Vehiculo(
+                cliente_id=cliente_id,
+                marca=marca,
+                modelo=modelo,
+                placa=f"LEG-{datetime.now().timestamp():.0f}",
+                anio=2024,
+                color=parts[2] if len(parts) > 2 else "N/A"
+            )
+            self.db.add(vehiculo)
+            await self.db.flush()
+
+        return vehiculo
+
+    async def _get_tipo_servicio(self, code: str) -> TipoServicio:
+        """Busca tipo de servicio por nombre/código."""
+        result = await self.db.execute(select(TipoServicio).where(TipoServicio.nombre == code))
+        tipo = result.scalar_one_or_none()
+
+        if not tipo:
+            # Crear uno por defecto si no existe
+            tipo = TipoServicio(nombre=code, descripcion=f"Servicio {code}", precio_base=0.0)
+            self.db.add(tipo)
+            await self.db.flush()
+        
+        return tipo
+
+    async def _get_default_taller(self) -> int | None:
+        result = await self.db.execute(select(Taller.id).limit(1))
+        return result.scalar()
+
+    async def create(self, data: ServiceRequestCreate, user_id: int) -> SolicitudServicio:
+        cliente = await self._get_or_create_cliente(data.client_name)
+        vehiculo = await self._get_or_create_vehiculo(cliente.id, data.vehicle_info)
+        tipo = await self._get_tipo_servicio(data.service_type.value)
+        taller_id = await self._get_default_taller()
+        codigo = await self._generate_code()
+
+        sr = SolicitudServicio(
+            codigo=codigo,
+            cliente_id=cliente.id,
+            vehiculo_id=vehiculo.id,
+            tipo_servicio_id=tipo.id,
+            taller_id=taller_id,
+            descripcion_problema=data.description,
+            ubicacion=data.location,
+            prioridad=data.priority.value,
+            estado=EstadoSolicitud.PENDIENTE,
+            progreso=0,
+            usuario_id=user_id,
         )
         self.db.add(sr)
         await self.db.commit()
         await self.db.refresh(sr)
-        return sr
-
-    async def get_by_id(self, request_id: int) -> ServiceRequest | None:
+        
+        # Recargar con relaciones
         result = await self.db.execute(
-            select(ServiceRequest).where(ServiceRequest.id == request_id)
+            select(SolicitudServicio)
+            .options(
+                selectinload(SolicitudServicio.cliente).selectinload(Cliente.usuario),
+                selectinload(SolicitudServicio.vehiculo),
+                selectinload(SolicitudServicio.tipo_servicio),
+                selectinload(SolicitudServicio.mecanico).selectinload(Mecanico.usuario)
+            )
+            .where(SolicitudServicio.id == sr.id)
+        )
+        return result.scalar_one()
+
+    async def get_by_id(self, request_id: int) -> SolicitudServicio | None:
+        result = await self.db.execute(
+            select(SolicitudServicio)
+            .options(
+                selectinload(SolicitudServicio.cliente).selectinload(Cliente.usuario),
+                selectinload(SolicitudServicio.vehiculo),
+                selectinload(SolicitudServicio.tipo_servicio),
+                selectinload(SolicitudServicio.mecanico).selectinload(Mecanico.usuario)
+            )
+            .where(SolicitudServicio.id == request_id)
         )
         return result.scalar_one_or_none()
 
@@ -54,20 +159,25 @@ class ServiceRequestService:
         status_filter: str | None = None,
         page: int = 1,
         per_page: int = 10,
-    ) -> tuple[list[ServiceRequest], int]:
-        """Return (items, total_count) with optional status filter and pagination."""
-        query = select(ServiceRequest)
+    ) -> tuple[list[SolicitudServicio], int]:
+        query = select(SolicitudServicio).options(
+            selectinload(SolicitudServicio.cliente).selectinload(Cliente.usuario),
+            selectinload(SolicitudServicio.vehiculo),
+            selectinload(SolicitudServicio.tipo_servicio),
+            selectinload(SolicitudServicio.mecanico).selectinload(Mecanico.usuario)
+        )
 
         if status_filter:
-            query = query.where(ServiceRequest.status == status_filter)
+            # Mapeo de estados legacy -> nuevo
+            status_map = {"COMPLETADO": "COMPLETADA", "RECHAZADO": "RECHAZADA"}
+            new_status = status_map.get(status_filter, status_filter)
+            query = query.where(SolicitudServicio.estado == new_status)
 
-        # Total count
         count_query = select(func.count()).select_from(query.subquery())
         total_result = await self.db.execute(count_query)
         total = total_result.scalar_one()
 
-        # Paginated results (newest first)
-        query = query.order_by(ServiceRequest.created_at.desc())
+        query = query.order_by(SolicitudServicio.fecha_creacion.desc())
         query = query.offset((page - 1) * per_page).limit(per_page)
 
         result = await self.db.execute(query)
@@ -75,36 +185,61 @@ class ServiceRequestService:
 
         return items, total
 
-    async def update(self, request_id: int, data: ServiceRequestUpdate) -> ServiceRequest | None:
+    async def update(self, request_id: int, data: ServiceRequestUpdate) -> SolicitudServicio | None:
         sr = await self.get_by_id(request_id)
         if not sr:
             return None
 
         update_data = data.model_dump(exclude_unset=True)
 
-        for field, value in update_data.items():
-            if value is not None:
-                # Convert enum values to strings
-                if hasattr(value, "value"):
-                    value = value.value
-                setattr(sr, field, value)
+        if "status" in update_data:
+            status_val = update_data["status"]
+            # Extraer valor string del enum si es necesario
+            status_str = status_val.value if hasattr(status_val, "value") else status_val
+            
+            # Mapeo legacy -> nuevo
+            status_map = {
+                "PENDIENTE": EstadoSolicitud.PENDIENTE,
+                "EN_PROGRESO": EstadoSolicitud.EN_PROGRESO,
+                "CRITICO": EstadoSolicitud.CRITICO,
+                "COMPLETADO": EstadoSolicitud.COMPLETADA,
+                "RECHAZADO": EstadoSolicitud.RECHAZADA
+            }
+            
+            sr.estado = status_map.get(status_str, EstadoSolicitud.PENDIENTE)
+            
+            if status_str == "COMPLETADO":
+                sr.fecha_fin = datetime.now(timezone.utc)
+                sr.progreso = 100
+            else:
+                sr.fecha_fin = None
 
-        # Auto-set completed_at when status changes to COMPLETADO
-        if data.status and data.status.value == "COMPLETADO":
-            sr.completed_at = datetime.now(timezone.utc)
-            sr.progress = 100
+        if "assigned_mechanic" in update_data and update_data["assigned_mechanic"]:
+            # Buscar mecánico por nombre de usuario
+            mec_name = update_data["assigned_mechanic"]
+            mec_result = await self.db.execute(
+                select(Mecanico)
+                .join(Usuario)
+                .where(Usuario.nombre == mec_name)
+            )
+            mechanic = mec_result.scalar_one_or_none()
+            if mechanic:
+                sr.mecanico_id = mechanic.id
+                sr.fecha_asignacion = datetime.now(timezone.utc)
 
-        # Auto-clear completed_at if status changes away from COMPLETADO
-        if data.status and data.status.value != "COMPLETADO" and sr.completed_at:
-            sr.completed_at = None
+        if "progress" in update_data:
+            sr.progreso = update_data["progress"]
+        if "description" in update_data:
+            sr.descripcion_problema = update_data["description"]
+        if "priority" in update_data:
+            sr.prioridad = update_data["priority"]
 
-        sr.updated_at = datetime.now(timezone.utc)
         await self.db.commit()
         await self.db.refresh(sr)
-        return sr
+        return await self.get_by_id(request_id)
 
     async def delete(self, request_id: int) -> bool:
-        sr = await self.get_by_id(request_id)
+        sr = await self.db.get(SolicitudServicio, request_id)
         if not sr:
             return False
         await self.db.delete(sr)
@@ -112,46 +247,35 @@ class ServiceRequestService:
         return True
 
     async def get_stats(self) -> ServiceRequestStats:
-        """Calculate dynamic KPIs."""
-        # Total active (not COMPLETADO)
+        # Total en cola (no COMPLETADA ni RECHAZADA)
         active_query = select(func.count()).where(
-            ServiceRequest.status != "COMPLETADO"
+            SolicitudServicio.estado.notin_([EstadoSolicitud.COMPLETADA, EstadoSolicitud.RECHAZADA, EstadoSolicitud.CANCELADA])
         )
-        active_result = await self.db.execute(active_query)
-        total_queue = active_result.scalar_one()
+        total_queue = (await self.db.execute(active_query)).scalar_one()
 
-        # Critical count
-        critical_query = select(func.count()).where(
-            ServiceRequest.status == "CRITICO"
-        )
-        critical_result = await self.db.execute(critical_query)
-        critical_count = critical_result.scalar_one()
+        # Críticos
+        critical_query = select(func.count()).where(SolicitudServicio.estado == EstadoSolicitud.CRITICO)
+        critical_count = (await self.db.execute(critical_query)).scalar_one()
 
-        # Completion rate
-        total_query = select(func.count(ServiceRequest.id))
-        total_result = await self.db.execute(total_query)
-        total_all = total_result.scalar_one()
-
-        completed_query = select(func.count()).where(
-            ServiceRequest.status == "COMPLETADO"
-        )
-        completed_result = await self.db.execute(completed_query)
-        completed_count = completed_result.scalar_one()
-
+        # Tasa de cierre
+        total_all = (await self.db.execute(select(func.count(SolicitudServicio.id)))).scalar_one()
+        completed_count = (await self.db.execute(
+            select(func.count()).where(SolicitudServicio.estado == EstadoSolicitud.COMPLETADA)
+        )).scalar_one()
+        
         completion_rate = (completed_count / total_all * 100) if total_all > 0 else 0.0
 
-        # Average lead time (hours) for completed requests
-        completed_items_query = select(ServiceRequest).where(
-            ServiceRequest.status == "COMPLETADO",
-            ServiceRequest.completed_at.isnot(None),
+        # Lead time
+        completed_items_query = select(SolicitudServicio).where(
+            SolicitudServicio.estado == EstadoSolicitud.COMPLETADA,
+            SolicitudServicio.fecha_fin.isnot(None),
         )
-        completed_items_result = await self.db.execute(completed_items_query)
-        completed_items = list(completed_items_result.scalars().all())
-
+        completed_items = (await self.db.execute(completed_items_query)).scalars().all()
+        
         avg_lead_time = 0.0
         if completed_items:
             total_hours = sum(
-                (item.completed_at - item.created_at).total_seconds() / 3600
+                (item.fecha_fin - item.fecha_creacion).total_seconds() / 3600
                 for item in completed_items
             )
             avg_lead_time = round(total_hours / len(completed_items), 1)

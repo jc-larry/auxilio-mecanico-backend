@@ -3,10 +3,15 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
-from app.models.inventory import InventoryItem
-from app.models.mechanic import Mechanic
-from app.models.service_request import ServiceRequest
+from app.models.inventario import Inventario, InventarioRepuesto
+from app.models.repuesto import Repuesto
+from app.models.mecanico import Mecanico
+from app.models.solicitud_servicio import SolicitudServicio
+from app.models.tipo_servicio import TipoServicio
+from app.models.usuario import Usuario
+from app.models.enums import EstadoSolicitud
 from app.schemas.inventory import SYSTEM_LABELS
 from app.schemas.service_request import SERVICE_LABELS
 
@@ -15,18 +20,18 @@ class AnalyticsService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
-    async def get_dashboard_analytics(self) -> dict:
+    async def get_dashboard_analytics(self, taller_id: int | None = None) -> dict:
         """Aggregate analytics data from all modules."""
         return {
-            "requests_by_day": await self._requests_by_day(),
-            "requests_by_type": await self._requests_by_type(),
-            "requests_by_status": await self._requests_by_status(),
-            "mechanic_workload": await self._mechanic_workload(),
-            "inventory_by_system": await self._inventory_by_system(),
-            "summary": await self._summary(),
+            "requests_by_day": await self._requests_by_day(taller_id),
+            "requests_by_type": await self._requests_by_type(taller_id),
+            "requests_by_status": await self._requests_by_status(taller_id),
+            "mechanic_workload": await self._mechanic_workload(taller_id),
+            "inventory_by_system": await self._inventory_by_system(taller_id),
+            "summary": await self._summary(taller_id),
         }
 
-    async def _requests_by_day(self) -> list[dict]:
+    async def _requests_by_day(self, taller_id: int | None = None) -> list[dict]:
         """Service requests per day for the last 7 days."""
         now = datetime.now(timezone.utc)
         days = []
@@ -36,12 +41,14 @@ class AnalyticsService:
             day_start = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
             day_end = target_date.replace(hour=23, minute=59, second=59, microsecond=999999)
 
-            result = await self.db.execute(
-                select(func.count()).where(
-                    ServiceRequest.created_at >= day_start,
-                    ServiceRequest.created_at <= day_end,
-                )
+            query = select(func.count()).select_from(SolicitudServicio).where(
+                SolicitudServicio.fecha_creacion >= day_start,
+                SolicitudServicio.fecha_creacion <= day_end,
             )
+            if taller_id:
+                query = query.where(SolicitudServicio.taller_id == taller_id)
+
+            result = await self.db.execute(query)
             count = result.scalar_one()
 
             day_names = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
@@ -61,9 +68,15 @@ class AnalyticsService:
 
         return days
 
-    async def _requests_by_type(self) -> list[dict]:
+    async def _requests_by_type(self, taller_id: int | None = None) -> list[dict]:
         """Distribution of service requests by type."""
-        result = await self.db.execute(select(ServiceRequest.service_type))
+        query = select(TipoServicio.nombre).join(
+            SolicitudServicio, SolicitudServicio.tipo_servicio_id == TipoServicio.id
+        )
+        if taller_id:
+            query = query.where(SolicitudServicio.taller_id == taller_id)
+
+        result = await self.db.execute(query)
         types = [row[0] for row in result.all()]
         total = len(types) or 1
 
@@ -85,9 +98,16 @@ class AnalyticsService:
 
         return items
 
-    async def _requests_by_status(self) -> list[dict]:
+    async def _requests_by_status(self, taller_id: int | None = None) -> list[dict]:
         """Count of requests per status."""
         statuses = ["PENDIENTE", "EN_PROGRESO", "CRITICO", "COMPLETADO", "RECHAZADO"]
+        status_map = {
+            "PENDIENTE": EstadoSolicitud.PENDIENTE,
+            "EN_PROGRESO": EstadoSolicitud.EN_PROGRESO,
+            "CRITICO": EstadoSolicitud.CRITICO,
+            "COMPLETADO": EstadoSolicitud.COMPLETADA,
+            "RECHAZADO": EstadoSolicitud.RECHAZADA,
+        }
         status_labels = {
             "PENDIENTE": "Pendiente",
             "EN_PROGRESO": "En Progreso",
@@ -105,9 +125,12 @@ class AnalyticsService:
 
         items = []
         for s in statuses:
-            result = await self.db.execute(
-                select(func.count()).where(ServiceRequest.status == s)
-            )
+            new_status = status_map.get(s)
+            query = select(func.count()).select_from(SolicitudServicio).where(SolicitudServicio.estado == new_status)
+            if taller_id:
+                query = query.where(SolicitudServicio.taller_id == taller_id)
+
+            result = await self.db.execute(query)
             count = result.scalar_one()
             items.append({
                 "status": s,
@@ -118,42 +141,47 @@ class AnalyticsService:
 
         return items
 
-    async def _mechanic_workload(self) -> list[dict]:
+    async def _mechanic_workload(self, taller_id: int | None = None) -> list[dict]:
         """How many assigned requests per mechanic."""
-        result = await self.db.execute(
-            select(
-                ServiceRequest.assigned_mechanic,
-                func.count(ServiceRequest.id),
-            )
-            .where(ServiceRequest.assigned_mechanic.isnot(None))
-            .group_by(ServiceRequest.assigned_mechanic)
-        )
+        query = select(Usuario.nombre, func.count(SolicitudServicio.id))
+        query = query.join(Mecanico, Mecanico.usuario_id == Usuario.id)
+        query = query.join(SolicitudServicio, SolicitudServicio.mecanico_id == Mecanico.id)
+        query = query.where(SolicitudServicio.estado.notin_([EstadoSolicitud.COMPLETADA, EstadoSolicitud.RECHAZADA]))
+        
+        if taller_id:
+            query = query.where(SolicitudServicio.taller_id == taller_id)
+        
+        query = query.group_by(Usuario.nombre)
+        
+        result = await self.db.execute(query)
         rows = result.all()
 
         items = []
         for name, count in rows:
-            parts = name.split()
-            initials = "".join(p[0] for p in parts[:2]).upper() if parts else "?"
+            initials = "".join([n[0] for n in name.split() if n])[:2].upper() if name else "?"
             items.append({
                 "name": name,
                 "initials": initials,
                 "assigned_count": count,
             })
 
-        # Sort by count descending
-        items.sort(key=lambda x: x["assigned_count"], reverse=True)
         return items
 
-    async def _inventory_by_system(self) -> list[dict]:
+    async def _inventory_by_system(self, taller_id: int | None = None) -> list[dict]:
         """Inventory units grouped by system category."""
-        result = await self.db.execute(
-            select(
-                InventoryItem.system_category,
-                func.sum(InventoryItem.quantity),
-                func.count(InventoryItem.id),
-            )
-            .group_by(InventoryItem.system_category)
-        )
+        query = select(
+            Repuesto.system_category,
+            func.sum(InventarioRepuesto.cantidad),
+            func.count(InventarioRepuesto.id),
+        ).join(InventarioRepuesto, InventarioRepuesto.repuesto_id == Repuesto.id)
+        
+        if taller_id:
+            query = query.join(Inventario, Inventario.id == InventarioRepuesto.inventario_id)
+            query = query.where(Inventario.taller_id == taller_id)
+            
+        query = query.group_by(Repuesto.system_category)
+        
+        result = await self.db.execute(query)
         rows = result.all()
 
         items = []
@@ -168,28 +196,45 @@ class AnalyticsService:
         items.sort(key=lambda x: x["total_units"], reverse=True)
         return items
 
-    async def _summary(self) -> dict:
+    async def _summary(self, taller_id: int | None = None) -> dict:
         """High-level summary counters."""
-        total_requests = (await self.db.execute(select(func.count(ServiceRequest.id)))).scalar_one()
-        completed_requests = (await self.db.execute(
-            select(func.count()).where(ServiceRequest.status == "COMPLETADO")
-        )).scalar_one()
-        active_requests = total_requests - completed_requests
+        # Solicitudes
+        q_total = select(func.count(SolicitudServicio.id))
+        q_comp = select(func.count(SolicitudServicio.id)).where(SolicitudServicio.estado == EstadoSolicitud.COMPLETADA)
+        q_act = select(func.count(SolicitudServicio.id)).where(SolicitudServicio.estado.notin_([EstadoSolicitud.COMPLETADA, EstadoSolicitud.RECHAZADA]))
 
-        total_mechanics = (await self.db.execute(select(func.count(Mechanic.id)))).scalar_one()
+        if taller_id:
+            q_total = q_total.where(SolicitudServicio.taller_id == taller_id)
+            q_comp = q_comp.where(SolicitudServicio.taller_id == taller_id)
+            q_act = q_act.where(SolicitudServicio.taller_id == taller_id)
+
+        total_requests = (await self.db.execute(q_total)).scalar_one()
+        completed_requests = (await self.db.execute(q_comp)).scalar_one()
+        active_requests = (await self.db.execute(q_act)).scalar_one()
+
+        # Mecánicos
+        total_mechanics = (await self.db.execute(select(func.count(Mecanico.id)))).scalar_one()
         available_mechanics = (await self.db.execute(
-            select(func.count()).where(Mechanic.is_available == True)  # noqa: E712
+            select(func.count(Mecanico.id)).where(Mecanico.disponible == True)  # noqa: E712
         )).scalar_one()
 
-        total_parts = (await self.db.execute(select(func.count(InventoryItem.id)))).scalar_one()
-        critical_parts = (await self.db.execute(
-            select(func.count()).where(InventoryItem.is_critical == True)  # noqa: E712
-        )).scalar_one()
+        # Repuestos
+        q_parts = select(func.count(InventarioRepuesto.id))
+        q_crit = select(func.count(InventarioRepuesto.id)).where(InventarioRepuesto.cantidad <= InventarioRepuesto.min_stock)
+        q_val = select(InventarioRepuesto).options(selectinload(InventarioRepuesto.repuesto))
+
+        if taller_id:
+            q_parts = q_parts.join(Inventario, Inventario.id == InventarioRepuesto.inventario_id).where(Inventario.taller_id == taller_id)
+            q_crit = q_crit.join(Inventario, Inventario.id == InventarioRepuesto.inventario_id).where(Inventario.taller_id == taller_id)
+            q_val = q_val.join(Inventario, Inventario.id == InventarioRepuesto.inventario_id).where(Inventario.taller_id == taller_id)
+
+        total_parts = (await self.db.execute(q_parts)).scalar_one()
+        critical_parts = (await self.db.execute(q_crit)).scalar_one()
 
         total_inventory_value = 0.0
-        inv_result = await self.db.execute(select(InventoryItem))
+        inv_result = await self.db.execute(q_val)
         for item in inv_result.scalars().all():
-            total_inventory_value += item.quantity * item.unit_price
+            total_inventory_value += item.cantidad * float(item.repuesto.precio)
 
         return {
             "total_requests": total_requests,
