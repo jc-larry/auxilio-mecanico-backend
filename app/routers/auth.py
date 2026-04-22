@@ -3,9 +3,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.database import get_db
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, get_current_user_with_permissions
 from app.core.security import create_access_token, create_refresh_token, decode_token
-from app.models.user import User
+from app.models.usuario import Usuario
 from app.schemas.auth import (
     LoginRequest,
     MessageResponse,
@@ -21,7 +21,7 @@ settings = get_settings()
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-async def register(payload: UserCreate, db: AsyncSession = Depends(get_db)) -> User:
+async def register(payload: UserCreate, db: AsyncSession = Depends(get_db)) -> UserResponse:
     service = UserService(db)
 
     if await service.get_by_email(payload.email):
@@ -30,7 +30,8 @@ async def register(payload: UserCreate, db: AsyncSession = Depends(get_db)) -> U
     if await service.get_by_username(payload.username):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already taken")
 
-    return await service.create(payload)
+    user = await service.create(payload)
+    return UserResponse.from_model(user)
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -64,7 +65,7 @@ async def refresh_token(payload: RefreshRequest, db: AsyncSession = Depends(get_
     service = UserService(db)
     user = await service.get_by_id(int(token_data["sub"]))
 
-    if not user or not user.is_active:
+    if not user or not user.estado:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
 
     return TokenResponse(
@@ -75,11 +76,11 @@ async def refresh_token(payload: RefreshRequest, db: AsyncSession = Depends(get_
 
 
 @router.post("/logout", response_model=MessageResponse)
-async def logout(_: User = Depends(get_current_user)) -> MessageResponse:
+async def logout(_: Usuario = Depends(get_current_user)) -> MessageResponse:
     # In production, add token to a blacklist (Redis recommended)
     return MessageResponse(message="Logged out successfully")
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_me(current_user: User = Depends(get_current_user)) -> User:
-    return current_user
+async def get_me(current_user: Usuario = Depends(get_current_user_with_permissions)) -> UserResponse:
+    return UserResponse.from_model(current_user)
