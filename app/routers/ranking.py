@@ -4,8 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from httpx import HTTPStatusError
 
 from app.core.config import get_settings
-from app.core.dependencies import get_current_user
-from app.models.user import User
+from app.core.dependencies import get_current_user, RequireRoles
+from app.core.permissions import RoleEnum
+from app.models.usuario import Usuario
 from app.schemas.ranking import RankingRequest, RankingResponse
 from app.services.ranking_service import RankingService
 
@@ -17,7 +18,7 @@ router = APIRouter(prefix="/ranking", tags=["Ranking"])
 @router.post("", response_model=RankingResponse)
 async def rank_workshops(
     payload: RankingRequest,
-    _: User = Depends(get_current_user),
+    _: Usuario = Depends(RequireRoles([RoleEnum.CLIENTE, RoleEnum.ADMINISTRADOR])),
 ):
     """Genera un ranking de talleres usando Claude como LLM.
 

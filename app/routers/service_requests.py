@@ -4,8 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.dependencies import get_current_user
-from app.models.user import User
+from app.core.dependencies import get_current_user, RequirePermissions
+from app.core.permissions import PermissionEnum
+from app.models.usuario import Usuario
 from app.schemas.service_request import (
     PaginatedResponse,
     ServiceRequestCreate,
@@ -24,7 +25,7 @@ async def list_service_requests(
     page: int = Query(1, ge=1),
     per_page: int = Query(10, ge=1, le=50),
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    _: Usuario = Depends(RequirePermissions([PermissionEnum.SOLICITUDES_VER])),
 ):
     service = ServiceRequestService(db)
     items, total = await service.list_all(status_filter, page, per_page)
@@ -42,7 +43,7 @@ async def list_service_requests(
 @router.get("/stats", response_model=ServiceRequestStats)
 async def get_stats(
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    _: Usuario = Depends(RequirePermissions([PermissionEnum.SOLICITUDES_VER])),
 ):
     service = ServiceRequestService(db)
     return await service.get_stats()
@@ -52,7 +53,7 @@ async def get_stats(
 async def get_service_request(
     request_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    _: Usuario = Depends(RequirePermissions([PermissionEnum.SOLICITUDES_VER])),
 ):
     service = ServiceRequestService(db)
     sr = await service.get_by_id(request_id)
@@ -65,7 +66,7 @@ async def get_service_request(
 async def create_service_request(
     payload: ServiceRequestCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: Usuario = Depends(RequirePermissions([PermissionEnum.SOLICITUDES_CREAR])),
 ):
     service = ServiceRequestService(db)
     sr = await service.create(payload, current_user.id)
@@ -77,7 +78,7 @@ async def update_service_request(
     request_id: int,
     payload: ServiceRequestUpdate,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    _: Usuario = Depends(RequirePermissions([PermissionEnum.SOLICITUDES_REPROGRAMAR])),
 ):
     service = ServiceRequestService(db)
     sr = await service.update(request_id, payload)
@@ -90,7 +91,7 @@ async def update_service_request(
 async def delete_service_request(
     request_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    _: Usuario = Depends(RequirePermissions([PermissionEnum.SOLICITUDES_RECHAZAR])),
 ):
     service = ServiceRequestService(db)
     deleted = await service.delete(request_id)

@@ -4,8 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from httpx import HTTPStatusError
 
 from app.core.config import get_settings
-from app.core.dependencies import get_current_user
-from app.models.user import User
+from app.core.dependencies import get_current_user, RequireRoles
+from app.core.permissions import RoleEnum
+from app.models.usuario import Usuario
 from app.schemas.payment import PaymentPreferenceRequest, PaymentPreferenceResponse
 from app.services.payment_service import PaymentService
 
@@ -17,7 +18,7 @@ router = APIRouter(prefix="/payments", tags=["Payments"])
 @router.post("/create-preference", response_model=PaymentPreferenceResponse)
 async def create_preference(
     payload: PaymentPreferenceRequest,
-    _: User = Depends(get_current_user),
+    _: Usuario = Depends(RequireRoles([RoleEnum.CLIENTE, RoleEnum.ADMINISTRADOR])),
 ):
     """Crea una preferencia de pago en MercadoPago.
 

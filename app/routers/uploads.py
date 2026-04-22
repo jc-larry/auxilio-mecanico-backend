@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 
 from app.core.config import get_settings
 from app.core.dependencies import get_current_user
-from app.models.user import User
+from app.models.usuario import Usuario
 from app.services.upload_service import UploadService
 
 logger = logging.getLogger(__name__)
@@ -16,7 +16,7 @@ router = APIRouter(prefix="/uploads", tags=["Uploads"])
 @router.post("")
 async def upload_file(
     file: UploadFile,
-    _: User = Depends(get_current_user),
+    _: Usuario = Depends(get_current_user),
 ):
     """Sube un archivo (imagen, video, audio) a Cloudinary.
 

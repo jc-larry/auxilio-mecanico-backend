@@ -4,8 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.dependencies import get_current_user
-from app.models.user import User
+from app.core.dependencies import get_current_user, RequirePermissions
+from app.core.permissions import PermissionEnum
+from app.models.usuario import Usuario
 from app.schemas.inventory import (
     InventoryItemCreate,
     InventoryItemResponse,
@@ -26,7 +27,7 @@ async def list_inventory(
     page: int = Query(1, ge=1),
     per_page: int = Query(10, ge=1, le=50),
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    _: Usuario = Depends(RequirePermissions([PermissionEnum.INVENTARIO_VER])),
 ):
     service = InventoryService(db)
     items, total = await service.list_all(critical, category, page, per_page)
@@ -44,7 +45,7 @@ async def list_inventory(
 @router.get("/stats", response_model=InventoryStats)
 async def get_stats(
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    _: Usuario = Depends(RequirePermissions([PermissionEnum.INVENTARIO_VER])),
 ):
     service = InventoryService(db)
     return await service.get_stats()
@@ -54,7 +55,7 @@ async def get_stats(
 async def get_item(
     item_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    _: Usuario = Depends(RequirePermissions([PermissionEnum.INVENTARIO_VER])),
 ):
     service = InventoryService(db)
     item = await service.get_by_id(item_id)
@@ -67,7 +68,7 @@ async def get_item(
 async def create_item(
     payload: InventoryItemCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: Usuario = Depends(RequirePermissions([PermissionEnum.INVENTARIO_AGREGAR])),
 ):
     service = InventoryService(db)
     existing = await service.get_by_sku(payload.sku)
@@ -82,7 +83,7 @@ async def update_item(
     item_id: int,
     payload: InventoryItemUpdate,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    _: Usuario = Depends(RequirePermissions([PermissionEnum.INVENTARIO_EDITAR])),
 ):
     service = InventoryService(db)
     item = await service.update(item_id, payload)
@@ -96,7 +97,7 @@ async def restock_item(
     item_id: int,
     payload: RestockRequest,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    _: Usuario = Depends(RequirePermissions([PermissionEnum.INVENTARIO_AJUSTAR_STOCK])),
 ):
     service = InventoryService(db)
     item = await service.restock(item_id, payload.quantity)
@@ -109,7 +110,7 @@ async def restock_item(
 async def delete_item(
     item_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    _: Usuario = Depends(RequirePermissions([PermissionEnum.INVENTARIO_ELIMINAR])),
 ):
     service = InventoryService(db)
     deleted = await service.delete(item_id)
