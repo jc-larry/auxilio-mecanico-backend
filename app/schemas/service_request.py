@@ -107,24 +107,53 @@ class ServiceRequestResponse(BaseModel):
 
     @classmethod
     def from_model(cls, obj) -> "ServiceRequestResponse":
+        # Extraer nombres de relaciones si están cargadas
+        client_name = "Cliente Desconocido"
+        if hasattr(obj, "cliente") and obj.cliente and obj.cliente.usuario:
+            client_name = obj.cliente.usuario.nombre
+
+        vehicle_info = "Vehículo Desconocido"
+        if hasattr(obj, "vehiculo") and obj.vehiculo:
+            vehicle_info = f"{obj.vehiculo.marca} {obj.vehiculo.modelo} ({obj.vehiculo.placa})"
+
+        assigned_mechanic = None
+        if hasattr(obj, "mecanico") and obj.mecanico and obj.mecanico.usuario:
+            assigned_mechanic = obj.mecanico.usuario.nombre
+
+        # Mapeo de estados (legacy usa COMPLETADO, nuevo usa COMPLETADA)
+        status_map = {
+            "COMPLETADA": "COMPLETADO",
+            "CANCELADA": "RECHAZADO",
+            "RECHAZADA": "RECHAZADO"
+        }
+        status = status_map.get(obj.estado.value if hasattr(obj.estado, "value") else obj.estado, 
+                                obj.estado.value if hasattr(obj.estado, "value") else obj.estado)
+
+        # Determinar el tipo de servicio (legacy usa string, nuevo usa ID/objeto)
+        # Por ahora asumimos que el nuevo modelo tiene el código en tipo_servicio.nombre o similar
+        service_type = "general"
+        if hasattr(obj, "tipo_servicio") and obj.tipo_servicio:
+            # Buscar el valor inverso en SERVICE_LABELS o usar el nombre directo
+            service_type = obj.tipo_servicio.nombre
+
         data = {
             "id": obj.id,
-            "code": obj.code,
-            "client_name": obj.client_name,
-            "vehicle_info": obj.vehicle_info,
-            "service_type": obj.service_type,
-            "service_type_label": SERVICE_LABELS.get(obj.service_type, obj.service_type),
-            "service_icon": SERVICE_ICONS.get(obj.service_type, "build"),
-            "description": obj.description,
-            "location": obj.location,
-            "status": obj.status,
-            "priority": obj.priority,
-            "assigned_mechanic": obj.assigned_mechanic,
-            "progress": obj.progress,
-            "created_at": obj.created_at,
-            "updated_at": obj.updated_at,
-            "completed_at": obj.completed_at,
-            "user_id": obj.user_id,
+            "code": obj.codigo,
+            "client_name": client_name,
+            "vehicle_info": vehicle_info,
+            "service_type": service_type,
+            "service_type_label": SERVICE_LABELS.get(service_type, service_type),
+            "service_icon": SERVICE_ICONS.get(service_type, "build"),
+            "description": obj.descripcion_problema,
+            "location": obj.ubicacion,
+            "status": status,
+            "priority": obj.prioridad,
+            "assigned_mechanic": assigned_mechanic,
+            "progress": obj.progreso,
+            "created_at": obj.fecha_creacion,
+            "updated_at": obj.fecha_creacion, # Simplificación
+            "completed_at": obj.fecha_fin,
+            "user_id": obj.usuario_id,
         }
         return cls(**data)
 

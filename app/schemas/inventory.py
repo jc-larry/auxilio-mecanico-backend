@@ -93,22 +93,25 @@ class InventoryItemResponse(BaseModel):
 
     @classmethod
     def from_model(cls, obj) -> "InventoryItemResponse":
-        is_critical = obj.quantity <= obj.min_stock
+        # obj is expected to be an InventarioRepuesto instance
+        # with its 'repuesto' and 'inventario' (taller) relationships loaded.
+        repuesto = obj.repuesto
+        is_critical = obj.cantidad <= obj.min_stock
 
         return cls(
             id=obj.id,
-            sku=obj.sku,
-            name=obj.name,
-            system_category=obj.system_category,
-            system_label=SYSTEM_LABELS.get(obj.system_category, obj.system_category),
-            icon=SYSTEM_ICONS.get(obj.system_category, "build"),
-            quantity=obj.quantity,
+            sku=repuesto.sku,
+            name=repuesto.nombre,
+            system_category=repuesto.system_category,
+            system_label=SYSTEM_LABELS.get(repuesto.system_category, repuesto.system_category),
+            icon=SYSTEM_ICONS.get(repuesto.system_category, "build"),
+            quantity=obj.cantidad,
             min_stock=obj.min_stock,
-            unit_price=obj.unit_price,
+            unit_price=float(repuesto.precio),
             is_critical=is_critical,
-            created_at=obj.created_at,
-            updated_at=obj.updated_at,
-            user_id=obj.user_id,
+            created_at=datetime.now(),  # Placeholder as new models don't have created_at yet
+            updated_at=datetime.now(),  # Placeholder
+            user_id=0,  # Placeholder
         )
 
 

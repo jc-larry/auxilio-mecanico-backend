@@ -30,14 +30,33 @@ class UserCreate(UserBase):
         return v
 
 
-class UserResponse(UserBase):
+class UserResponse(BaseModel):
     id: int
+    email: str
+    username: str
+    full_name: str
     is_active: bool
     is_verified: bool
-    created_at: datetime
     last_login: datetime | None = None
+    roles: list[str] = []
+    permissions: list[str] = []
 
     model_config = {"from_attributes": True}
+
+    @classmethod
+    def from_model(cls, obj) -> "UserResponse":
+        return cls(
+            id=obj.id,
+            email=obj.email,
+            username=obj.username,
+            full_name=obj.nombre,
+            is_active=obj.estado,
+            is_verified=obj.is_verified,
+            created_at=obj.fecha_registro,
+            last_login=obj.last_login,
+            roles=[r.nombre for r in getattr(obj, "roles", [])],
+            permissions=list({p.nombre for r in getattr(obj, "roles", []) for p in getattr(r, "permisos", [])})
+        )
 
 
 class LoginRequest(BaseModel):

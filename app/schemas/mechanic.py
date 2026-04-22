@@ -103,26 +103,29 @@ class MechanicResponse(BaseModel):
 
     @classmethod
     def from_model(cls, obj) -> "MechanicResponse":
-        name = obj.full_name or ""
-        parts = name.split()
+        # full_name comes from the related usuario if available, otherwise fallback
+        name = ""
+        if hasattr(obj, "usuario") and obj.usuario:
+            name = obj.usuario.nombre
+        parts = name.split() if name else []
         initials = "".join(p[0] for p in parts[:2]).upper() if parts else "?"
 
         return cls(
             id=obj.id,
-            employee_code=obj.employee_code,
-            full_name=obj.full_name,
+            employee_code=obj.employee_code or "",
+            full_name=name,
             initials=initials,
-            phone=obj.phone,
-            specialty=obj.specialty,
-            specialty_label=SPECIALTY_LABELS.get(obj.specialty, obj.specialty),
-            specialty_icon=SPECIALTY_ICONS.get(obj.specialty, "build"),
-            expertise=obj.expertise,
-            expertise_label=EXPERTISE_LABELS.get(obj.expertise, obj.expertise),
-            is_available=obj.is_available,
-            avatar_color=obj.avatar_color,
+            phone=obj.phone or "",
+            specialty=obj.especialidad,
+            specialty_label=SPECIALTY_LABELS.get(obj.especialidad, obj.especialidad),
+            specialty_icon=SPECIALTY_ICONS.get(obj.especialidad, "build"),
+            expertise=obj.expertise or "JUNIOR",
+            expertise_label=EXPERTISE_LABELS.get(obj.expertise or "JUNIOR", "Junior"),
+            is_available=obj.disponible,
+            avatar_color=obj.avatar_color or "#091426",
             created_at=obj.created_at,
             updated_at=obj.updated_at,
-            user_id=obj.user_id,
+            user_id=obj.usuario_id,
         )
 
 
