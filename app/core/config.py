@@ -3,18 +3,18 @@ from functools import lru_cache
 
 
 class Settings(BaseSettings):
-    app_name: str = "Auth System API"
+    app_name: str = "Auxilio Mecánico API"
     app_version: str = "1.0.0"
     debug: bool = False
 
     # Security
-    secret_key: str = "your-super-secret-key-change-in-production-min-32-chars"
+    secret_key: str = "38944e15077c4258af3576ebf66a702638944e15077c4258af3576ebf66a7026"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 7
 
     # Database
-    database_url: str = "sqlite+aiosqlite:///./auth.db"
+    database_url: str = "postgresql+asyncpg://postgres:1234@localhost:5432/auxilio_mecanico_db"
 
     # CORS
     allowed_origins: list[str] = ["http://localhost:4200"]

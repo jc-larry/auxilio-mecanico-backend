@@ -14,7 +14,7 @@ router = APIRouter(prefix="/analytics", tags=["Analytics"])
 async def get_analytics(
     taller_id: int | None = None,
     db: AsyncSession = Depends(get_db),
-    _: Usuario = Depends(RequireRoles([RoleEnum.ADMINISTRADOR, RoleEnum.SUPERVISOR])),
+    _: Usuario = Depends(RequireRoles([RoleEnum.ADMINISTRADOR, RoleEnum.PROPIETARIO])),
 ) -> dict:
     service = AnalyticsService(db)
     return await service.get_dashboard_analytics(taller_id)

@@ -3,7 +3,7 @@ from enum import Enum
 
 class RoleEnum(str, Enum):
     ADMINISTRADOR = "Administrador"
-    SUPERVISOR = "Supervisor"
+    PROPIETARIO = "Propietario"
     MECANICO = "Mecánico"
     CLIENTE = "Cliente"
 
