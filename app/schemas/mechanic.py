@@ -69,6 +69,7 @@ class MechanicCreate(BaseModel):
     specialty: Specialty = Specialty.GENERAL
     expertise: Expertise = Expertise.JUNIOR
     avatar_color: str = Field(default="#091426", max_length=10)
+    workshop_id: int | None = None
 
 
 class MechanicUpdate(BaseModel):
@@ -78,6 +79,7 @@ class MechanicUpdate(BaseModel):
     expertise: Expertise | None = None
     is_available: bool | None = None
     avatar_color: str | None = Field(default=None, max_length=10)
+    workshop_id: int | None = None
 
 
 # ── Response schemas ──
@@ -98,6 +100,7 @@ class MechanicResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     user_id: int
+    workshop_id: int | None = None
 
     model_config = {"from_attributes": True}
 
@@ -126,6 +129,7 @@ class MechanicResponse(BaseModel):
             created_at=obj.created_at,
             updated_at=obj.updated_at,
             user_id=obj.usuario_id,
+            workshop_id=obj.taller_id,
         )
 
 
