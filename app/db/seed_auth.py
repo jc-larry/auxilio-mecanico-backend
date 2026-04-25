@@ -38,15 +38,7 @@ async def seed_auth():
         # 2. Definir mapa de roles a permisos
         roles_config = {
             RoleEnum.ADMINISTRADOR: [p.value for p in PermissionEnum],
-            RoleEnum.SUPERVISOR: [
-                p.value for p in PermissionEnum 
-                if p not in (
-                    PermissionEnum.USUARIOS_ELIMINAR, 
-                    PermissionEnum.USUARIOS_ASIGNAR_ROL,
-                    PermissionEnum.INVENTARIO_ELIMINAR,
-                    PermissionEnum.ORDENES_ELIMINAR
-                )
-            ],
+            RoleEnum.PROPIETARIO: [p.value for p in PermissionEnum],
             RoleEnum.MECANICO: [
                 PermissionEnum.ORDENES_VER.value,
                 PermissionEnum.ORDENES_EDITAR.value,

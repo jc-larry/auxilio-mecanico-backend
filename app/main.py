@@ -13,6 +13,7 @@ from app.routers import (
     mechanics,
     payments,
     ranking,
+    roles,
     service_requests,
     uploads,
     users,
@@ -50,6 +51,8 @@ def create_app() -> FastAPI:
     app.include_router(inventory.router, prefix="/api/v1")
     app.include_router(analytics.router, prefix="/api/v1")
     app.include_router(users.router, prefix="/api/v1")
+    app.include_router(roles.router, prefix="/api/v1")
+    app.include_router(roles.permissions_router, prefix="/api/v1")
     app.include_router(ranking.router, prefix="/api/v1")
     app.include_router(uploads.router, prefix="/api/v1")
     app.include_router(payments.router, prefix="/api/v1")

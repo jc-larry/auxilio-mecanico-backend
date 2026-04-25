@@ -37,3 +37,11 @@ async def get_db() -> AsyncSession:
 async def init_db() -> None:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    
+    # Seeding integrado
+    try:
+        from app.db.seed_auth import seed_auth
+        await seed_auth()
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Error seeding database: {e}")
