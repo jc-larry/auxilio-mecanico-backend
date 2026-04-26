@@ -24,68 +24,10 @@ class ServiceRequestService:
         self.db = db
 
     async def _generate_code(self) -> str:
-        """Auto-generate sequential code like SR-0001, SR-0002..."""
-        result = await self.db.execute(
-            select(func.count(SolicitudServicio.id))
-        )
-        count = result.scalar_one()
-        return f"SR-{count + 1:04d}"
-
-    async def _get_or_create_cliente(self, name: str) -> Cliente:
-        """Busca un cliente por nombre de usuario o crea uno nuevo."""
-        # Buscar usuario por nombre
-        user_result = await self.db.execute(select(Usuario).where(Usuario.nombre == name))
-        user = user_result.scalar_one_or_none()
-
-        if not user:
-            # Crear usuario básico
-            user = Usuario(
-                nombre=name,
-                username=name.lower().replace(" ", "."),
-                email=f"{name.lower().replace(' ', '.')}@example.com",
-                hashed_password="legacy_password",
-                estado=True
-            )
-            self.db.add(user)
-            await self.db.flush()
-
-        # Buscar cliente asociado
-        client_result = await self.db.execute(select(Cliente).where(Cliente.usuario_id == user.id))
-        cliente = client_result.scalar_one_or_none()
-
-        if not cliente:
-            cliente = Cliente(usuario_id=user.id)
-            self.db.add(cliente)
-            await self.db.flush()
-
-        return cliente
-
-    async def _get_or_create_vehiculo(self, cliente_id: int, info: str) -> Vehiculo:
-        """Busca un vehículo por info o crea uno nuevo."""
-        # Parsear info (ej: "Toyota Corolla Gris")
-        parts = info.split(" ")
-        marca = parts[0] if len(parts) > 0 else "Genérica"
-        modelo = parts[1] if len(parts) > 1 else "Genérico"
-        
-        veh_result = await self.db.execute(
-            select(Vehiculo).where(Vehiculo.cliente_id == cliente_id, Vehiculo.marca == marca, Vehiculo.modelo == modelo)
-        )
-        vehiculo = veh_result.scalar_one_or_none()
-
-        if not vehiculo:
-            # Crear vehículo ficticio
-            vehiculo = Vehiculo(
-                cliente_id=cliente_id,
-                marca=marca,
-                modelo=modelo,
-                placa=f"LEG-{datetime.now().timestamp():.0f}",
-                anio=2024,
-                color=parts[2] if len(parts) > 2 else "N/A"
-            )
-            self.db.add(vehiculo)
-            await self.db.flush()
-
-        return vehiculo
+        """Auto-generate sequential code like SR-0001, SR-0002... using max ID."""
+        result = await self.db.execute(select(func.max(SolicitudServicio.id)))
+        max_id = result.scalar() or 0
+        return f"SR-{max_id + 1:04d}"
 
     async def _get_tipo_servicio(self, code: str) -> TipoServicio:
         """Busca tipo de servicio por nombre/código."""
@@ -105,28 +47,30 @@ class ServiceRequestService:
         return result.scalar()
 
     async def create(self, data: ServiceRequestCreate, user_id: int) -> SolicitudServicio:
-        cliente = await self._get_or_create_cliente(data.client_name)
-        vehiculo = await self._get_or_create_vehiculo(cliente.id, data.vehicle_info)
         tipo = await self._get_tipo_servicio(data.service_type.value)
         taller_id = await self._get_default_taller()
         codigo = await self._generate_code()
 
-        sr = SolicitudServicio(
-            codigo=codigo,
-            cliente_id=cliente.id,
-            vehiculo_id=vehiculo.id,
-            tipo_servicio_id=tipo.id,
-            taller_id=taller_id,
-            descripcion_problema=data.description,
-            ubicacion=data.location,
-            prioridad=data.priority.value,
-            estado=EstadoSolicitud.PENDIENTE,
-            progreso=0,
-            usuario_id=user_id,
-        )
-        self.db.add(sr)
-        await self.db.commit()
-        await self.db.refresh(sr)
+        try:
+            sr = SolicitudServicio(
+                codigo=codigo,
+                cliente_id=data.cliente_id,
+                vehiculo_id=data.vehiculo_id,
+                tipo_servicio_id=tipo.id,
+                taller_id=taller_id,
+                descripcion_problema=data.description,
+                ubicacion=data.location,
+                prioridad=data.priority.value,
+                estado=EstadoSolicitud.PENDIENTE,
+                progreso=0,
+                usuario_id=user_id,
+            )
+            self.db.add(sr)
+            await self.db.commit()
+            await self.db.refresh(sr)
+        except Exception as e:
+            await self.db.rollback()
+            raise ValueError(f"Error al persistir la solicitud: {str(e)}")
         
         # Recargar con relaciones
         result = await self.db.execute(

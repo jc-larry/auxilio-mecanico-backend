@@ -69,8 +69,11 @@ async def create_service_request(
     current_user: Usuario = Depends(RequirePermissions([PermissionEnum.SOLICITUDES_CREAR])),
 ):
     service = ServiceRequestService(db)
-    sr = await service.create(payload, current_user.id)
-    return ServiceRequestResponse.from_model(sr)
+    try:
+        sr = await service.create(payload, current_user.id)
+        return ServiceRequestResponse.from_model(sr)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.patch("/{request_id}", response_model=ServiceRequestResponse)

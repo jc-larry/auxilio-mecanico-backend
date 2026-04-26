@@ -66,8 +66,8 @@ SERVICE_LABELS: dict[str, str] = {
 # ── Request schemas ──
 
 class ServiceRequestCreate(BaseModel):
-    client_name: str = Field(..., min_length=2, max_length=100)
-    vehicle_info: str = Field(..., min_length=2, max_length=200)
+    cliente_id: int
+    vehiculo_id: int
     service_type: ServiceType
     description: str = Field(default="", max_length=1000)
     location: str = Field(..., min_length=2, max_length=200)
