@@ -67,10 +67,10 @@ async def get_mechanic(
 async def create_mechanic(
     payload: MechanicCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: Usuario = Depends(RequirePermissions([PermissionEnum.USUARIOS_CREAR])),
+    _: Usuario = Depends(RequirePermissions([PermissionEnum.USUARIOS_CREAR])),
 ):
     service = MechanicService(db)
-    m = await service.create(payload, current_user.id)
+    m = await service.create(payload)
     return MechanicResponse.from_model(m)
 
 

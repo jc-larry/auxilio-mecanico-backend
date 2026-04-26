@@ -47,3 +47,9 @@ class PermissionEnum(str, Enum):
     INVENTARIO_EDITAR = "inventario.editar"
     INVENTARIO_ELIMINAR = "inventario.eliminar"
     INVENTARIO_AJUSTAR_STOCK = "inventario.ajustar_stock"
+
+    # Talleres
+    TALLERES_VER = "talleres.ver"
+    TALLERES_CREAR = "talleres.crear"
+    TALLERES_EDITAR = "talleres.editar"
+    TALLERES_ELIMINAR = "talleres.eliminar"
