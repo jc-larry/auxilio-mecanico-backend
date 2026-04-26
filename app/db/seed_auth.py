@@ -38,20 +38,52 @@ async def seed_auth():
         # 2. Definir mapa de roles a permisos
         roles_config = {
             RoleEnum.ADMINISTRADOR: [p.value for p in PermissionEnum],
-            RoleEnum.PROPIETARIO: [p.value for p in PermissionEnum],
-            RoleEnum.MECANICO: [
-                PermissionEnum.ORDENES_VER.value,
-                PermissionEnum.ORDENES_EDITAR.value,
-                PermissionEnum.ORDENES_CAMBIAR_ESTADO.value,
+            RoleEnum.PROPIETARIO: [       
+                # SERVICIOS
+                PermissionEnum.SERVICIOS_VER.value,
+                PermissionEnum.SERVICIOS_CREAR.value,
+                PermissionEnum.SERVICIOS_EDITAR.value,
+                PermissionEnum.SERVICIOS_ELIMINAR.value,
+                
+                # VEHÍCULOS
+                PermissionEnum.VEHICULOS_VER.value,
+                
+                # SOLICITUDES
+                PermissionEnum.SOLICITUDES_VER.value,
+                PermissionEnum.SOLICITUDES_CREAR.value,
+                PermissionEnum.SOLICITUDES_ACEPTAR.value,
+                PermissionEnum.SOLICITUDES_RECHAZAR.value,
+                PermissionEnum.SOLICITUDES_ASIGNAR_MECANICO.value,
+                PermissionEnum.SOLICITUDES_CAMBIAR_ESTADO.value,
+      
+                # INVENTARIO
                 PermissionEnum.INVENTARIO_VER.value,
+                PermissionEnum.INVENTARIO_AGREGAR.value,
                 PermissionEnum.INVENTARIO_AJUSTAR_STOCK.value,
+                PermissionEnum.INVENTARIO_ELIMINAR.value,
+                
+                # FACTURAS
+                PermissionEnum.FACTURAS_VER.value,
+                PermissionEnum.FACTURAS_CREAR.value,
+                PermissionEnum.FACTURAS_ANULAR.value,
+                
+                # PAGOS
+                PermissionEnum.PAGOS_VER.value,
+           
+                # ANALÍTICAS
+                PermissionEnum.TALLERES_ANALITICAS.value,
+            ],
+            RoleEnum.MECANICO: [
+                PermissionEnum.SOLICITUDES_VER.value,
+                PermissionEnum.SOLICITUDES_ASIGNAR_MECANICO.value,
+                PermissionEnum.SOLICITUDES_CAMBIAR_ESTADO.value,
+                PermissionEnum.INVENTARIO_VER.value,
                 PermissionEnum.VEHICULOS_VER.value,
             ],
             RoleEnum.CLIENTE: [
                 PermissionEnum.VEHICULOS_VER.value,
                 PermissionEnum.SOLICITUDES_CREAR.value,
                 PermissionEnum.SOLICITUDES_VER.value,
-                PermissionEnum.SOLICITUDES_REPROGRAMAR.value,
                 PermissionEnum.ORDENES_VER.value,
             ]
         }
@@ -98,6 +130,12 @@ async def seed_auth():
                 first_user.roles.append(roles_db[RoleEnum.ADMINISTRADOR.value])
                 await db.commit()
                 logger.info(f"Se ha asignado el rol ADMINISTRADOR al usuario {first_user.username}")
+        else:
+            logger.info("No hay usuarios en la base de datos todavía. Recuerda asignar el rol cuando crees el primero.")
+
+if __name__ == "__main__":
+    asyncio.run(seed_auth())
+}")
         else:
             logger.info("No hay usuarios en la base de datos todavía. Recuerda asignar el rol cuando crees el primero.")
 

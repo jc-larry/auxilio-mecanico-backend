@@ -24,22 +24,19 @@ class PermissionEnum(str, Enum):
     VEHICULOS_VER = "vehiculos.ver"
     VEHICULOS_EDITAR = "vehiculos.editar"
 
-    # Órdenes de Trabajo
-    ORDENES_CREAR = "ordenes.crear"
-    ORDENES_VER = "ordenes.ver"
-    ORDENES_EDITAR = "ordenes.editar"
-    ORDENES_ELIMINAR = "ordenes.eliminar"
-    ORDENES_ASIGNAR_MECANICO = "ordenes.asignar_mecanico"
-    ORDENES_CAMBIAR_ESTADO = "ordenes.cambiar_estado"
-    ORDENES_APROBAR = "ordenes.aprobar"
-    ORDENES_CERRAR = "ordenes.cerrar"
+    # Servicios
+    SERVICIOS_VER = "servicios.ver"
+    SERVICIOS_CREAR = "servicios.crear"
+    SERVICIOS_EDITAR = "servicios.editar"
+    SERVICIOS_ELIMINAR = "servicios.eliminar"
 
     # Solicitudes / Citas
     SOLICITUDES_CREAR = "solicitudes.crear"
     SOLICITUDES_VER = "solicitudes.ver"
     SOLICITUDES_ACEPTAR = "solicitudes.aceptar"
     SOLICITUDES_RECHAZAR = "solicitudes.rechazar"
-    SOLICITUDES_REPROGRAMAR = "solicitudes.reprogramar"
+    SOLICITUDES_ASIGNAR_MECANICO = "solicitudes.asignar_mecanico"
+    SOLICITUDES_CAMBIAR_ESTADO = "solicitudes.cambiar_estado"
 
     # Inventario / Repuestos
     INVENTARIO_VER = "inventario.ver"
@@ -53,3 +50,16 @@ class PermissionEnum(str, Enum):
     TALLERES_CREAR = "talleres.crear"
     TALLERES_EDITAR = "talleres.editar"
     TALLERES_ELIMINAR = "talleres.eliminar"
+    TALLERES_ANALITICAS = "talleres.analiticas"
+
+    # FACTURAS
+    FACTURAS_CREAR = "facturas.crear"
+    FACTURAS_VER = "facturas.ver"
+    FACTURAS_ANULAR = "facturas.anular"
+
+    # PAGOS
+    PAGOS_REGISTRAR = "pagos.registrar"
+    PAGOS_VER = "pagos.ver"
+
+    # BITÁCORA
+    BITACORA_VER = "bitacora.ver"
