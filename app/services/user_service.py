@@ -105,3 +105,12 @@ class UserService:
         await self.db.commit()
         await self.db.refresh(user)
         return user
+
+    async def change_password(self, user_id: int, new_password: str) -> bool:
+        user = await self.get_by_id(user_id)
+        if not user:
+            return False
+
+        user.hashed_password = hash_password(new_password)
+        await self.db.commit()
+        return True

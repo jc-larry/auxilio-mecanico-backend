@@ -25,10 +25,10 @@ async def register(payload: UserCreate, db: AsyncSession = Depends(get_db)) -> U
     service = UserService(db)
 
     if await service.get_by_email(payload.email):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="El correo ya está registrado")
 
     if await service.get_by_username(payload.username):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already taken")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="El usuario ya está registrado")
 
     user = await service.create(payload)
     return UserResponse.from_model(user)
@@ -42,7 +42,7 @@ async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)) -> To
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials",
+            detail="Credenciales inválidas",
         )
 
     return TokenResponse(
@@ -59,14 +59,14 @@ async def refresh_token(payload: RefreshRequest, db: AsyncSession = Depends(get_
     if not token_data or token_data.get("type") != "refresh":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired refresh token",
+            detail="Token de refresco inválido o expirado",
         )
 
     service = UserService(db)
     user = await service.get_by_id(int(token_data["sub"]))
 
     if not user or not user.estado:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no encontrado")
 
     return TokenResponse(
         access_token=create_access_token(user.id),
@@ -78,7 +78,7 @@ async def refresh_token(payload: RefreshRequest, db: AsyncSession = Depends(get_
 @router.post("/logout", response_model=MessageResponse)
 async def logout(_: Usuario = Depends(get_current_user)) -> MessageResponse:
     # In production, add token to a blacklist (Redis recommended)
-    return MessageResponse(message="Logged out successfully")
+    return MessageResponse(message="Sesión cerrada exitosamente")
 
 
 @router.get("/me", response_model=UserResponse)

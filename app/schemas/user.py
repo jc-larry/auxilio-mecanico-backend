@@ -16,3 +16,7 @@ class PaginatedUserResponse(BaseModel):
     page: int
     per_page: int
     pages: int
+
+
+class UserPasswordUpdate(BaseModel):
+    new_password: str = Field(..., min_length=8, max_length=50)

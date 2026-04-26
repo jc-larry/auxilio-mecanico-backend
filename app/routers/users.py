@@ -8,7 +8,7 @@ from app.core.dependencies import RequireRoles, get_current_user
 from app.core.permissions import RoleEnum
 from app.models.usuario import Usuario
 from app.schemas.auth import UserCreate, UserResponse
-from app.schemas.user import PaginatedUserResponse, UserUpdate
+from app.schemas.user import PaginatedUserResponse, UserUpdate, UserPasswordUpdate
 from app.services.user_service import UserService
 
 router = APIRouter(prefix="/users", tags=["Users"])
@@ -95,4 +95,17 @@ async def delete_user(
     service = UserService(db)
     user = await service.update(user_id, UserUpdate(is_active=False), current_user.id)
     if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
+
+
+@router.patch("/{user_id}/password", status_code=status.HTTP_204_NO_CONTENT)
+async def change_password(
+    user_id: int,
+    payload: UserPasswordUpdate,
+    db: AsyncSession = Depends(get_db),
+    _: Usuario = Depends(RequireRoles([RoleEnum.ADMINISTRADOR])),
+):
+    service = UserService(db)
+    success = await service.change_password(user_id, payload.new_password)
+    if not success:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
