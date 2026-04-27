@@ -1,6 +1,5 @@
 from datetime import datetime
 from enum import Enum
-from typing import Generic, TypeVar
 
 from pydantic import BaseModel, Field
 
@@ -92,38 +91,32 @@ class InventoryItemResponse(BaseModel):
     model_config = {"from_attributes": True}
 
     @classmethod
-    def from_model(cls, obj) -> "InventoryItemResponse":
-        # obj is expected to be an InventarioRepuesto instance
-        # with its 'repuesto' and 'inventario' (taller) relationships loaded.
-        repuesto = obj.repuesto
-        is_critical = obj.cantidad <= obj.min_stock
+    def from_model(cls, repuesto: "Repuesto", inv_item: "InventarioRepuesto | None" = None) -> "InventoryItemResponse":
+        # repuesto is a Repuesto instance.
+        # inv_item is an optional InventarioRepuesto instance.
+        
+        quantity = inv_item.cantidad if inv_item else 0
+        min_stock = inv_item.min_stock if inv_item else 5
+        is_critical = quantity <= min_stock
 
         return cls(
-            id=obj.id,
+            id=repuesto.id,  # Use Repuesto ID as the primary identifier
             sku=repuesto.sku,
             name=repuesto.nombre,
             system_category=repuesto.system_category,
             system_label=SYSTEM_LABELS.get(repuesto.system_category, repuesto.system_category),
             icon=SYSTEM_ICONS.get(repuesto.system_category, "build"),
-            quantity=obj.cantidad,
-            min_stock=obj.min_stock,
+            quantity=quantity,
+            min_stock=min_stock,
             unit_price=float(repuesto.precio),
             is_critical=is_critical,
-            created_at=datetime.now(),  # Placeholder as new models don't have created_at yet
+            created_at=datetime.now(),  # Placeholder
             updated_at=datetime.now(),  # Placeholder
             user_id=0,  # Placeholder
         )
 
 
-T = TypeVar("T")
 
-
-class PaginatedResponse(BaseModel, Generic[T]):
-    items: list[T]
-    total: int
-    page: int
-    per_page: int
-    pages: int
 
 
 class InventoryStats(BaseModel):

@@ -8,25 +8,48 @@ from app.schemas.workshop import (
     WorkshopCreate,
     WorkshopResponse,
     WorkshopUpdate,
-    PaginatedWorkshopResponse,
 )
+from app.schemas.common import PaginatedResponse
 from app.services.workshop_service import WorkshopService
 from app.models.usuario import Usuario
+from app.models.propietario import Propietario
 
 router = APIRouter(prefix="/workshops", tags=["Workshops"])
 
-@router.get("", response_model=PaginatedWorkshopResponse[WorkshopResponse])
+@router.get("", response_model=PaginatedResponse[WorkshopResponse])
 async def list_workshops(
     page: int = Query(1, ge=1),
     per_page: int = Query(10, ge=1, le=50),
     db: AsyncSession = Depends(get_db),
-    _: Usuario = Depends(RequirePermissions([PermissionEnum.TALLERES_VER])),
+    current_user: Usuario = Depends(RequirePermissions([PermissionEnum.TALLERES_VER])),
 ):
     service = WorkshopService(db)
-    items, total = await service.list_all(page, per_page)
+    
+    # Filter by propietario_id if not admin
+    propietario_id = None
+    user_roles = [r.nombre for r in current_user.roles]
+    is_admin = "Administrador" in user_roles
+    is_owner = "Propietario" in user_roles
+
+    if not is_admin and is_owner:
+        if not current_user.propietario:
+            # Ensure Propietario record exists
+            new_propietario = Propietario(usuario_id=current_user.id)
+            db.add(new_propietario)
+            await db.commit()
+            await db.refresh(current_user)
+        
+        if current_user.propietario:
+            propietario_id = current_user.propietario.id
+        else:
+            # Fallback if creation failed or something is wrong
+            # Return empty list or raise error
+            return PaginatedResponse(items=[], total=0, page=page, per_page=per_page, pages=0)
+        
+    items, total = await service.list_all(page, per_page, propietario_id)
     pages = math.ceil(total / per_page) if total > 0 else 1
     
-    return PaginatedWorkshopResponse(
+    return PaginatedResponse(
         items=items,
         total=total,
         page=page,
@@ -38,10 +61,33 @@ async def list_workshops(
 async def create_workshop(
     payload: WorkshopCreate,
     db: AsyncSession = Depends(get_db),
-    _: Usuario = Depends(RequirePermissions([PermissionEnum.TALLERES_CREAR])),
+    current_user: Usuario = Depends(RequirePermissions([PermissionEnum.TALLERES_CREAR])),
 ):
     service = WorkshopService(db)
-    return await service.create(payload)
+    propietario_id = None
+    
+    # Check if user is owner and ensure record exists
+    user_roles = [r.nombre for r in current_user.roles]
+    is_admin = "Administrador" in user_roles
+    is_owner = "Propietario" in user_roles
+    
+    if not is_admin and is_owner:
+        if not current_user.propietario:
+            # Create Propietario record on the fly if missing
+            new_propietario = Propietario(usuario_id=current_user.id)
+            db.add(new_propietario)
+            await db.commit()
+            await db.refresh(current_user)
+        
+        if current_user.propietario:
+            propietario_id = current_user.propietario.id
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No se pudo establecer el vínculo de propiedad para este usuario."
+            )
+        
+    return await service.create(payload, propietario_id)
 
 @router.patch("/{workshop_id}", response_model=WorkshopResponse)
 async def update_workshop(

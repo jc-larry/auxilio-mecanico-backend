@@ -154,8 +154,7 @@ async def seed_auth():
                 email=EMAIL_ADMIN,
                 password=PASSWORD_ADMIN,
                 confirm_password=PASSWORD_ADMIN,
-                full_name="Administrador del Sistema",
-                username="admin"
+                full_name="Administrador del Sistema"
             )
             # UserService.create ya le asigna el rol 'Cliente' por defecto ahora,
             # pero aquí lo elevaremos a 'Administrador'
@@ -172,7 +171,7 @@ async def seed_auth():
         if not any(r.nombre == admin_role_name for r in admin_user.roles):
             admin_user.roles.append(roles_db[admin_role_name])
             await db.commit()
-            logger.info(f"Se ha asignado el rol ADMINISTRADOR al usuario {admin_user.username}")
+            logger.info(f"Se ha asignado el rol ADMINISTRADOR al usuario {admin_user.email}")
         else:
             logger.info("El usuario ya tiene el rol ADMINISTRADOR.")
 

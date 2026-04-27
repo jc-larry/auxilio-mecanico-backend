@@ -37,14 +37,10 @@ class UserService:
         result = await self.db.execute(select(Usuario).where(Usuario.email == email))
         return result.scalar_one_or_none()
 
-    async def get_by_username(self, username: str) -> Usuario | None:
-        result = await self.db.execute(select(Usuario).where(Usuario.username == username))
-        return result.scalar_one_or_none()
 
     async def create(self, data: UserCreate) -> Usuario:
         user = Usuario(
             email=data.email,
-            username=data.username,
             nombre=data.full_name,
             hashed_password=hash_password(data.password),
             estado=True,
@@ -75,7 +71,7 @@ class UserService:
             accion="NUEVO_USUARIO",
             entidad="Usuario",
             entidad_id=str(user.id),
-            detalles={"username": user.username, "roles": [r.nombre for r in user.roles]}
+            detalles={"email": user.email, "roles": [r.nombre for r in user.roles]}
         )
         await self.db.commit()
         
@@ -89,12 +85,7 @@ class UserService:
             return None
         if not user.estado:
             return None
-        await self._update_last_login(user)
         return user
-
-    async def _update_last_login(self, user: Usuario) -> None:
-        user.last_login = datetime.now(timezone.utc)
-        await self.db.commit()
 
     async def list_all(self, page: int = 1, per_page: int = 10) -> tuple[list[Usuario], int]:
         offset = (page - 1) * per_page
@@ -152,7 +143,7 @@ class UserService:
                 accion=accion,
                 entidad="Usuario",
                 entidad_id=str(user.id),
-                detalles={"username": user.username}
+                detalles={"email": user.email}
             )
             await self.db.commit()
             

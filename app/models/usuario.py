@@ -33,15 +33,6 @@ class Usuario(Base):
         nullable=False,
     )
 
-    # ── Campos legacy (auth existente, no están en el diagrama) ──────
-    username: Mapped[str] = mapped_column(
-        String(50), unique=True, index=True, nullable=False
-    )
-    is_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    last_login: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-
     # ── Relaciones ───────────────────────────────────────────────────
     roles: Mapped[list["Rol"]] = relationship(
         secondary="usuario_roles", back_populates="usuarios"

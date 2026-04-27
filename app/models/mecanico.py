@@ -30,17 +30,6 @@ class Mecanico(Base):
     )
     disponible: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
-    # ── Campos legacy (dashboard existente) ──────────────────────────
-    employee_code: Mapped[str | None] = mapped_column(
-        String(20), unique=True, index=True, nullable=True
-    )
-    phone: Mapped[str | None] = mapped_column(String(20), nullable=True, default="")
-    expertise: Mapped[str | None] = mapped_column(
-        String(20), nullable=True, default="JUNIOR"
-    )
-    avatar_color: Mapped[str | None] = mapped_column(
-        String(10), nullable=True, default="#091426"
-    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

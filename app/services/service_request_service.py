@@ -30,34 +30,27 @@ class ServiceRequestService:
         max_id = result.scalar() or 0
         return f"SR-{max_id + 1:04d}"
 
-    async def _get_tipo_servicio(self, code: str) -> TipoServicio:
-        """Busca tipo de servicio por nombre/código."""
-        result = await self.db.execute(select(TipoServicio).where(TipoServicio.nombre == code))
-        tipo = result.scalar_one_or_none()
-
-        if not tipo:
-            # Crear uno por defecto si no existe
-            tipo = TipoServicio(nombre=code, descripcion=f"Servicio {code}", precio_base=0.0)
-            self.db.add(tipo)
-            await self.db.flush()
-        
-        return tipo
 
     async def _get_default_taller(self) -> int | None:
         result = await self.db.execute(select(Taller.id).limit(1))
         return result.scalar()
 
     async def create(self, data: ServiceRequestCreate, user_id: int) -> SolicitudServicio:
-        tipo = await self._get_tipo_servicio(data.service_type.value)
         taller_id = await self._get_default_taller()
         codigo = await self._generate_code()
+
+        # Verificar que el tipo de servicio existe
+        tipo_result = await self.db.execute(select(TipoServicio).where(TipoServicio.id == data.tipo_servicio_id))
+        tipo = tipo_result.scalar_one_or_none()
+        if not tipo:
+            raise ValueError(f"El tipo de servicio seleccionado (ID: {data.tipo_servicio_id}) no existe.")
 
         try:
             sr = SolicitudServicio(
                 codigo=codigo,
                 cliente_id=data.cliente_id,
                 vehiculo_id=data.vehiculo_id,
-                tipo_servicio_id=tipo.id,
+                tipo_servicio_id=data.tipo_servicio_id,
                 taller_id=taller_id,
                 descripcion_problema=data.description,
                 ubicacion=data.location,

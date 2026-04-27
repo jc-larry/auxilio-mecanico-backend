@@ -13,7 +13,6 @@ from app.models.tipo_servicio import TipoServicio
 from app.models.usuario import Usuario
 from app.models.enums import EstadoSolicitud
 from app.schemas.inventory import SYSTEM_LABELS
-from app.schemas.service_request import SERVICE_LABELS
 
 
 class AnalyticsService:
@@ -89,8 +88,8 @@ class AnalyticsService:
         items = []
         for i, (stype, count) in enumerate(counter.most_common()):
             items.append({
-                "type": stype,
-                "label": SERVICE_LABELS.get(stype, stype),
+                "type": stype.lower().replace(" ", "_"),
+                "label": stype,
                 "count": count,
                 "pct": round(count / total * 100),
                 "color": colors[i % len(colors)],
@@ -173,11 +172,10 @@ class AnalyticsService:
             Repuesto.system_category,
             func.sum(InventarioRepuesto.cantidad),
             func.count(InventarioRepuesto.id),
-        ).join(InventarioRepuesto, InventarioRepuesto.repuesto_id == Repuesto.id)
+        ).select_from(Repuesto).join(InventarioRepuesto, InventarioRepuesto.repuesto_id == Repuesto.id)
         
         if taller_id:
-            query = query.join(Inventario, Inventario.id == InventarioRepuesto.inventario_id)
-            query = query.where(Inventario.taller_id == taller_id)
+            query = query.join(InventarioRepuesto.inventario).where(Inventario.taller_id == taller_id)
             
         query = query.group_by(Repuesto.system_category)
         
@@ -213,28 +211,29 @@ class AnalyticsService:
         active_requests = (await self.db.execute(q_act)).scalar_one()
 
         # Mecánicos
-        total_mechanics = (await self.db.execute(select(func.count(Mecanico.id)))).scalar_one()
-        available_mechanics = (await self.db.execute(
-            select(func.count(Mecanico.id)).where(Mecanico.disponible == True)  # noqa: E712
-        )).scalar_one()
+        q_m_total = select(func.count(Mecanico.id))
+        q_m_avail = select(func.count(Mecanico.id)).where(Mecanico.disponible == True)  # noqa: E712
+
+        if taller_id:
+            q_m_total = q_m_total.where(Mecanico.taller_id == taller_id)
+            q_m_avail = q_m_avail.where(Mecanico.taller_id == taller_id)
+
+        total_mechanics = (await self.db.execute(q_m_total)).scalar_one()
+        available_mechanics = (await self.db.execute(q_m_avail)).scalar_one()
 
         # Repuestos
         q_parts = select(func.count(InventarioRepuesto.id))
         q_crit = select(func.count(InventarioRepuesto.id)).where(InventarioRepuesto.cantidad <= InventarioRepuesto.min_stock)
-        q_val = select(InventarioRepuesto).options(selectinload(InventarioRepuesto.repuesto))
+        q_val = select(func.coalesce(func.sum(InventarioRepuesto.cantidad * Repuesto.precio), 0)).select_from(InventarioRepuesto).join(Repuesto)
 
         if taller_id:
-            q_parts = q_parts.join(Inventario, Inventario.id == InventarioRepuesto.inventario_id).where(Inventario.taller_id == taller_id)
-            q_crit = q_crit.join(Inventario, Inventario.id == InventarioRepuesto.inventario_id).where(Inventario.taller_id == taller_id)
-            q_val = q_val.join(Inventario, Inventario.id == InventarioRepuesto.inventario_id).where(Inventario.taller_id == taller_id)
+            q_parts = q_parts.join(InventarioRepuesto.inventario).where(Inventario.taller_id == taller_id)
+            q_crit = q_crit.join(InventarioRepuesto.inventario).where(Inventario.taller_id == taller_id)
+            q_val = q_val.join(InventarioRepuesto.inventario).where(Inventario.taller_id == taller_id)
 
         total_parts = (await self.db.execute(q_parts)).scalar_one()
         critical_parts = (await self.db.execute(q_crit)).scalar_one()
-
-        total_inventory_value = 0.0
-        inv_result = await self.db.execute(q_val)
-        for item in inv_result.scalars().all():
-            total_inventory_value += item.cantidad * float(item.repuesto.precio)
+        total_inventory_value = (await self.db.execute(q_val)).scalar_one()
 
         return {
             "total_requests": total_requests,
