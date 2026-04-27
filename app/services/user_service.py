@@ -7,8 +7,10 @@ from sqlalchemy.orm import selectinload
 from app.core.security import hash_password, verify_password
 from app.models.rol import Rol
 from app.models.usuario import Usuario
+from app.models.propietario import Propietario
 from app.schemas.auth import UserCreate
 from app.schemas.user import UserUpdate
+from app.services.bitacora_service import BitacoraService
 
 
 class UserService:
@@ -22,7 +24,11 @@ class UserService:
     async def get_by_id_with_permissions(self, user_id: int) -> Usuario | None:
         result = await self.db.execute(
             select(Usuario)
-            .options(selectinload(Usuario.roles).selectinload(Rol.permisos))
+            .options(
+                selectinload(Usuario.roles).selectinload(Rol.permisos),
+                selectinload(Usuario.mecanico),
+                selectinload(Usuario.propietario).selectinload(Propietario.talleres)
+            )
             .where(Usuario.id == user_id)
         )
         return result.scalar_one_or_none()
@@ -43,10 +49,33 @@ class UserService:
             hashed_password=hash_password(data.password),
             estado=True,
         )
+        
+        # Asignar rol por defecto (Cliente)
+        from app.core.permissions import RoleEnum
+        role_result = await self.db.execute(
+            select(Rol).where(Rol.nombre == RoleEnum.CLIENTE.value)
+        )
+        default_role = role_result.scalar_one_or_none()
+        if default_role:
+            user.roles.append(default_role)
+
         self.db.add(user)
         await self.db.commit()
-        await self.db.refresh(user)
-        return user
+        
+        # Registro en Bitácora
+        bitacora = BitacoraService(self.db)
+        await bitacora.log_action(
+            usuario_id=user.id, # Asumimos auto-registro si no hay current_user
+            accion="NUEVO_USUARIO",
+            entidad="Usuario",
+            entidad_id=str(user.id),
+            detalles={"username": user.username, "roles": [r.nombre for r in user.roles]}
+        )
+        await self.db.commit()
+        
+        # Retornar el usuario con roles y permisos cargados para evitar errores de lazy loading
+        return await self.get_by_id_with_permissions(user.id)
+
 
     async def authenticate(self, email: str, password: str) -> Usuario | None:
         user = await self.get_by_email(email)
@@ -65,7 +94,11 @@ class UserService:
         offset = (page - 1) * per_page
         
         # Base query eagerly loading roles and permissions
-        query = select(Usuario).options(selectinload(Usuario.roles).selectinload(Rol.permisos))
+        query = select(Usuario).options(
+            selectinload(Usuario.roles).selectinload(Rol.permisos),
+            selectinload(Usuario.mecanico),
+            selectinload(Usuario.propietario).selectinload(Propietario.talleres)
+        )
         
         # Get total count
         count_query = select(func.count()).select_from(Usuario)
@@ -103,8 +136,22 @@ class UserService:
                 user.roles = list(db_roles)
 
         await self.db.commit()
-        await self.db.refresh(user)
-        return user
+        
+        # Registro en Bitácora para desactivación/activación
+        if data.is_active is not None:
+            accion = "ACTIVAR_USUARIO" if data.is_active else "DESACTIVAR_USUARIO"
+            bitacora = BitacoraService(self.db)
+            await bitacora.log_action(
+                usuario_id=current_user_id,
+                accion=accion,
+                entidad="Usuario",
+                entidad_id=str(user.id),
+                detalles={"username": user.username}
+            )
+            await self.db.commit()
+            
+        return await self.get_by_id_with_permissions(user_id)
+
 
     async def change_password(self, user_id: int, new_password: str) -> bool:
         user = await self.get_by_id(user_id)

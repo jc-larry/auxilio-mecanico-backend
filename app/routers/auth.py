@@ -34,6 +34,8 @@ async def register(payload: UserCreate, db: AsyncSession = Depends(get_db)) -> U
     return UserResponse.from_model(user)
 
 
+from app.services.bitacora_service import BitacoraService
+
 @router.post("/login", response_model=TokenResponse)
 async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)) -> TokenResponse:
     service = UserService(db)
@@ -44,6 +46,16 @@ async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)) -> To
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Credenciales inválidas",
         )
+
+    # Registro en Bitácora
+    bitacora = BitacoraService(db)
+    await bitacora.log_action(
+        usuario_id=user.id,
+        accion="INICIO_SESION",
+        entidad="Usuario",
+        entidad_id=str(user.id)
+    )
+    await db.commit()
 
     return TokenResponse(
         access_token=create_access_token(user.id),

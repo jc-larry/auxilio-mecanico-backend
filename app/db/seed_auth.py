@@ -6,9 +6,15 @@ from app.core.database import AsyncSessionLocal
 from app.models.rol import Rol, Permiso
 from app.models.usuario import Usuario
 from app.core.permissions import RoleEnum, PermissionEnum
+from app.services.user_service import UserService
+from app.schemas.auth import UserCreate
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Configuración del Administrador inicial
+EMAIL_ADMIN = "admin@example.com"
+PASSWORD_ADMIN = "Admin123"
 
 async def seed_auth():
     async with AsyncSessionLocal() as db:
@@ -72,6 +78,10 @@ async def seed_auth():
            
                 # ANALÍTICAS
                 PermissionEnum.TALLERES_ANALITICAS.value,
+
+                # TALLERES
+                PermissionEnum.TALLERES_VER.value,
+                PermissionEnum.TALLERES_CREAR.value,
             ],
             RoleEnum.MECANICO: [
                 PermissionEnum.SOLICITUDES_VER.value,
@@ -84,8 +94,8 @@ async def seed_auth():
                 PermissionEnum.VEHICULOS_VER.value,
                 PermissionEnum.SOLICITUDES_CREAR.value,
                 PermissionEnum.SOLICITUDES_VER.value,
-                PermissionEnum.ORDENES_VER.value,
             ]
+
         }
         
         # 3. Crear roles y asignar permisos
@@ -114,30 +124,37 @@ async def seed_auth():
             
         await db.commit()
         logger.info("Roles y permisos asignados correctamente.")
-        
-        # 4. Asignar rol ADMINISTRADOR al primer usuario (si existe y no tiene roles)
-        result = await db.execute(select(Usuario).order_by(Usuario.id).limit(1))
-        first_user = result.scalar_one_or_none()
-        
-        if first_user:
-            # cargar sus roles (la relación no se carga por defecto)
-            from sqlalchemy.orm import selectinload
-            stmt = select(Usuario).options(selectinload(Usuario.roles)).where(Usuario.id == first_user.id)
-            result = await db.execute(stmt)
-            first_user = result.scalar_one_or_none()
-            
-            if not first_user.roles:
-                first_user.roles.append(roles_db[RoleEnum.ADMINISTRADOR.value])
-                await db.commit()
-                logger.info(f"Se ha asignado el rol ADMINISTRADOR al usuario {first_user.username}")
-        else:
-            logger.info("No hay usuarios en la base de datos todavía. Recuerda asignar el rol cuando crees el primero.")
 
-if __name__ == "__main__":
-    asyncio.run(seed_auth())
-}")
+        # 4. Crear usuario administrador si no existe
+        service = UserService(db)
+        admin_user = await service.get_by_email(EMAIL_ADMIN)
+                
+        if not admin_user:
+            logger.info(f"Creando usuario administrador: {EMAIL_ADMIN}")
+            admin_data = UserCreate(
+                email=EMAIL_ADMIN,
+                password=PASSWORD_ADMIN,
+                confirm_password=PASSWORD_ADMIN,
+                full_name="Administrador del Sistema",
+                username="admin"
+            )
+            # UserService.create ya le asigna el rol 'Cliente' por defecto ahora,
+            # pero aquí lo elevaremos a 'Administrador'
+            admin_user = await service.create(admin_data)
+        
+        # Asegurar que tenga el rol ADMINISTRADOR
+        # (cargamos roles para verificar)
+        from sqlalchemy.orm import selectinload
+        stmt = select(Usuario).options(selectinload(Usuario.roles)).where(Usuario.id == admin_user.id)
+        result = await db.execute(stmt)
+        admin_user = result.scalar_one()
+        
+        admin_role_name = RoleEnum.ADMINISTRADOR.value
+        if not any(r.nombre == admin_role_name for r in admin_user.roles):
+            admin_user.roles.append(roles_db[admin_role_name])
+            await db.commit()
+            logger.info(f"Se ha asignado el rol ADMINISTRADOR al usuario {admin_user.username}")
         else:
-            logger.info("No hay usuarios en la base de datos todavía. Recuerda asignar el rol cuando crees el primero.")
-
+            logger.info("El usuario ya tiene el rol ADMINISTRADOR.")
 if __name__ == "__main__":
     asyncio.run(seed_auth())

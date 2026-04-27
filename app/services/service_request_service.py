@@ -17,6 +17,7 @@ from app.schemas.service_request import (
     ServiceRequestStats,
     ServiceRequestUpdate,
 )
+from app.services.bitacora_service import BitacoraService
 
 
 class ServiceRequestService:
@@ -103,6 +104,7 @@ class ServiceRequestService:
         status_filter: str | None = None,
         page: int = 1,
         per_page: int = 10,
+        taller_id: int | None = None,
     ) -> tuple[list[SolicitudServicio], int]:
         query = select(SolicitudServicio).options(
             selectinload(SolicitudServicio.cliente).selectinload(Cliente.usuario),
@@ -117,6 +119,9 @@ class ServiceRequestService:
             new_status = status_map.get(status_filter, status_filter)
             query = query.where(SolicitudServicio.estado == new_status)
 
+        if taller_id is not None:
+            query = query.where(SolicitudServicio.taller_id == taller_id)
+
         count_query = select(func.count()).select_from(query.subquery())
         total_result = await self.db.execute(count_query)
         total = total_result.scalar_one()
@@ -129,7 +134,7 @@ class ServiceRequestService:
 
         return items, total
 
-    async def update(self, request_id: int, data: ServiceRequestUpdate) -> SolicitudServicio | None:
+    async def update(self, request_id: int, data: ServiceRequestUpdate, current_user_id: int) -> SolicitudServicio | None:
         sr = await self.get_by_id(request_id)
         if not sr:
             return None
@@ -180,6 +185,29 @@ class ServiceRequestService:
 
         await self.db.commit()
         await self.db.refresh(sr)
+        
+        # Log to Bitácora
+        bitacora = BitacoraService(self.db)
+        if "assigned_mechanic" in update_data and update_data["assigned_mechanic"]:
+            await bitacora.log_action(
+                usuario_id=current_user_id,
+                accion="ASIGNAR_MECANICO",
+                entidad="SolicitudServicio",
+                entidad_id=str(sr.id),
+                detalles={"mecanico_id": sr.mecanico_id, "codigo": sr.codigo}
+            )
+        
+        if "status" in update_data:
+            await bitacora.log_action(
+                usuario_id=current_user_id,
+                accion="ACTUALIZAR_ESTADO",
+                entidad="SolicitudServicio",
+                entidad_id=str(sr.id),
+                detalles={"nuevo_estado": sr.estado.value, "codigo": sr.codigo}
+            )
+            
+        await self.db.commit()
+        
         return await self.get_by_id(request_id)
 
     async def delete(self, request_id: int) -> bool:
@@ -190,22 +218,31 @@ class ServiceRequestService:
         await self.db.commit()
         return True
 
-    async def get_stats(self) -> ServiceRequestStats:
+    async def get_stats(self, taller_id: int | None = None) -> ServiceRequestStats:
         # Total en cola (no COMPLETADA ni RECHAZADA)
         active_query = select(func.count()).where(
             SolicitudServicio.estado.notin_([EstadoSolicitud.COMPLETADA, EstadoSolicitud.RECHAZADA, EstadoSolicitud.CANCELADA])
         )
+        if taller_id is not None:
+            active_query = active_query.where(SolicitudServicio.taller_id == taller_id)
         total_queue = (await self.db.execute(active_query)).scalar_one()
 
         # Críticos
         critical_query = select(func.count()).where(SolicitudServicio.estado == EstadoSolicitud.CRITICO)
+        if taller_id is not None:
+            critical_query = critical_query.where(SolicitudServicio.taller_id == taller_id)
         critical_count = (await self.db.execute(critical_query)).scalar_one()
 
         # Tasa de cierre
-        total_all = (await self.db.execute(select(func.count(SolicitudServicio.id)))).scalar_one()
-        completed_count = (await self.db.execute(
-            select(func.count()).where(SolicitudServicio.estado == EstadoSolicitud.COMPLETADA)
-        )).scalar_one()
+        total_query = select(func.count(SolicitudServicio.id))
+        completed_query = select(func.count()).where(SolicitudServicio.estado == EstadoSolicitud.COMPLETADA)
+        
+        if taller_id is not None:
+            total_query = total_query.where(SolicitudServicio.taller_id == taller_id)
+            completed_query = completed_query.where(SolicitudServicio.taller_id == taller_id)
+
+        total_all = (await self.db.execute(total_query)).scalar_one()
+        completed_count = (await self.db.execute(completed_query)).scalar_one()
         
         completion_rate = (completed_count / total_all * 100) if total_all > 0 else 0.0
 
@@ -214,6 +251,8 @@ class ServiceRequestService:
             SolicitudServicio.estado == EstadoSolicitud.COMPLETADA,
             SolicitudServicio.fecha_fin.isnot(None),
         )
+        if taller_id is not None:
+            completed_items_query = completed_items_query.where(SolicitudServicio.taller_id == taller_id)
         completed_items = (await self.db.execute(completed_items_query)).scalars().all()
         
         avg_lead_time = 0.0

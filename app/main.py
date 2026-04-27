@@ -19,6 +19,7 @@ from app.routers import (
     users,
     workshops,
     clients,
+    bitacora,
 )
 
 settings = get_settings()
@@ -60,6 +61,7 @@ def create_app() -> FastAPI:
     app.include_router(payments.router, prefix="/api/v1")
     app.include_router(workshops.router, prefix="/api/v1")
     app.include_router(clients.router, prefix="/api/v1")
+    app.include_router(bitacora.router, prefix="/api/v1")
 
     @app.get("/health")
     async def health_check() -> dict[str, str]:

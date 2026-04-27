@@ -12,6 +12,7 @@ from app.schemas.mechanic import (
     MechanicStats,
     MechanicUpdate,
 )
+from app.services.bitacora_service import BitacoraService
 
 
 class MechanicService:
@@ -102,6 +103,7 @@ class MechanicService:
         specialty_filter: str | None = None,
         page: int = 1,
         per_page: int = 10,
+        taller_id: int | None = None,
     ) -> tuple[list[Mecanico], int]:
         query = select(Mecanico).options(selectinload(Mecanico.usuario))
 
@@ -110,6 +112,9 @@ class MechanicService:
 
         if specialty_filter:
             query = query.where(Mecanico.especialidad == specialty_filter)
+
+        if taller_id is not None:
+            query = query.where(Mecanico.taller_id == taller_id)
 
         count_query = select(func.count()).select_from(query.subquery())
         total_result = await self.db.execute(count_query)
@@ -123,7 +128,7 @@ class MechanicService:
 
         return items, total
 
-    async def update(self, mechanic_id: int, data: MechanicUpdate) -> Mecanico | None:
+    async def update(self, mechanic_id: int, data: MechanicUpdate, current_user_id: int) -> Mecanico | None:
         result = await self.db.execute(
             select(Mecanico)
             .options(selectinload(Mecanico.usuario))
@@ -158,6 +163,19 @@ class MechanicService:
         mechanic.updated_at = datetime.now(timezone.utc)
         await self.db.commit()
         await self.db.refresh(mechanic)
+        
+        # Log to bitácora if availability changed
+        if "is_available" in update_data:
+            bitacora = BitacoraService(self.db)
+            await bitacora.log_action(
+                usuario_id=current_user_id,
+                accion="CAMBIAR_DISPONIBILIDAD",
+                entidad="Mecanico",
+                entidad_id=str(mechanic.id),
+                detalles={"disponible": mechanic.disponible, "codigo": mechanic.employee_code}
+            )
+            await self.db.commit()
+            
         return mechanic
 
     async def delete(self, mechanic_id: int) -> bool:
@@ -168,17 +186,24 @@ class MechanicService:
         await self.db.commit()
         return True
 
-    async def get_stats(self) -> MechanicStats:
-        total_result = await self.db.execute(select(func.count(Mecanico.id)))
+    async def get_stats(self, taller_id: int | None = None) -> MechanicStats:
+        total_query = select(func.count(Mecanico.id))
+        if taller_id is not None:
+            total_query = total_query.where(Mecanico.taller_id == taller_id)
+        total_result = await self.db.execute(total_query)
         total = total_result.scalar_one()
 
-        available_result = await self.db.execute(
-            select(func.count()).where(Mecanico.disponible == True)  # noqa: E712
-        )
+        available_query = select(func.count()).where(Mecanico.disponible == True)  # noqa: E712
+        if taller_id is not None:
+            available_query = available_query.where(Mecanico.taller_id == taller_id)
+        available_result = await self.db.execute(available_query)
         available = available_result.scalar_one()
 
         # Top specialty
-        all_result = await self.db.execute(select(Mecanico.especialidad))
+        all_query = select(Mecanico.especialidad)
+        if taller_id is not None:
+            all_query = all_query.where(Mecanico.taller_id == taller_id)
+        all_result = await self.db.execute(all_query)
         specialties = [row[0] for row in all_result.all()]
         counter = Counter(specialties)
         top_spec, top_count = counter.most_common(1)[0] if counter else ("general", 0)
