@@ -29,9 +29,4 @@ class RoleUpdate(BaseModel):
     nombre: str | None = Field(None, min_length=2, max_length=50)
     permisos_ids: list[int] | None = None
 
-class PaginatedRoleResponse(BaseModel):
-    items: list[RoleResponse]
-    total: int
-    page: int
-    per_page: int
-    pages: int
+

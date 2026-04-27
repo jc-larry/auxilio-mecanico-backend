@@ -1,5 +1,4 @@
 from pydantic import BaseModel, Field
-from typing import Generic, TypeVar
 
 class WorkshopBase(BaseModel):
     nombre: str = Field(..., min_length=2, max_length=100)
@@ -25,11 +24,4 @@ class WorkshopResponse(WorkshopBase):
 
     model_config = {"from_attributes": True}
 
-T = TypeVar("T")
 
-class PaginatedWorkshopResponse(BaseModel, Generic[T]):
-    items: list[T]
-    total: int
-    page: int
-    per_page: int
-    pages: int

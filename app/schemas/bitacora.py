@@ -7,7 +7,7 @@ class BitacoraUsuarioSimple(BaseModel):
     """Schema ligero del usuario para la bitácora — sin roles ni permisos."""
     id: int
     email: str
-    username: str
+
     full_name: str
 
     model_config = ConfigDict(from_attributes=True)
@@ -17,7 +17,7 @@ class BitacoraUsuarioSimple(BaseModel):
         return cls(
             id=obj.id,
             email=obj.email,
-            username=obj.username,
+
             full_name=obj.nombre,
         )
 
@@ -52,9 +52,4 @@ class BitacoraResponse(BaseModel):
         )
 
 
-class PaginatedBitacoraResponse(BaseModel):
-    items: list[BitacoraResponse]
-    total: int
-    page: int
-    per_page: int
-    pages: int
+

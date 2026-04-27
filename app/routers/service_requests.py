@@ -4,16 +4,16 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.dependencies import get_current_user, RequirePermissions
+from app.core.dependencies import get_current_user, RequirePermissions, get_user_taller_id
 from app.core.permissions import PermissionEnum
 from app.models.usuario import Usuario
 from app.schemas.service_request import (
-    PaginatedResponse,
     ServiceRequestCreate,
     ServiceRequestResponse,
     ServiceRequestStats,
     ServiceRequestUpdate,
 )
+from app.schemas.common import PaginatedResponse
 from app.services.service_request_service import ServiceRequestService
 
 router = APIRouter(prefix="/service-requests", tags=["Service Requests"])
@@ -25,10 +25,11 @@ async def list_service_requests(
     page: int = Query(1, ge=1),
     per_page: int = Query(10, ge=1, le=50),
     db: AsyncSession = Depends(get_db),
-    _: Usuario = Depends(RequirePermissions([PermissionEnum.SOLICITUDES_VER])),
+    current_user: Usuario = Depends(RequirePermissions([PermissionEnum.SOLICITUDES_VER])),
 ):
+    taller_id = get_user_taller_id(current_user)
     service = ServiceRequestService(db)
-    items, total = await service.list_all(status_filter, page, per_page)
+    items, total = await service.list_all(status_filter, page, per_page, taller_id)
     pages = math.ceil(total / per_page) if total > 0 else 1
 
     return PaginatedResponse(
@@ -43,10 +44,11 @@ async def list_service_requests(
 @router.get("/stats", response_model=ServiceRequestStats)
 async def get_stats(
     db: AsyncSession = Depends(get_db),
-    _: Usuario = Depends(RequirePermissions([PermissionEnum.SOLICITUDES_VER])),
+    current_user: Usuario = Depends(RequirePermissions([PermissionEnum.SOLICITUDES_VER])),
 ):
+    taller_id = get_user_taller_id(current_user)
     service = ServiceRequestService(db)
-    return await service.get_stats()
+    return await service.get_stats(taller_id)
 
 
 @router.get("/{request_id}", response_model=ServiceRequestResponse)
@@ -75,20 +77,18 @@ async def create_service_request(
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-
 @router.patch("/{request_id}", response_model=ServiceRequestResponse)
 async def update_service_request(
     request_id: int,
     payload: ServiceRequestUpdate,
     db: AsyncSession = Depends(get_db),
-    _: Usuario = Depends(RequirePermissions([PermissionEnum.SOLICITUDES_REPROGRAMAR])),
+    current_user: Usuario = Depends(get_current_user),
 ):
     service = ServiceRequestService(db)
-    sr = await service.update(request_id, payload)
+    sr = await service.update(request_id, payload, current_user.id)
     if not sr:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitud no encontrada")
     return ServiceRequestResponse.from_model(sr)
-
 
 @router.delete("/{request_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_service_request(

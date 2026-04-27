@@ -8,13 +8,14 @@ from app.core.dependencies import RequireRoles, get_current_user
 from app.core.permissions import RoleEnum
 from app.models.usuario import Usuario
 from app.schemas.auth import UserCreate, UserResponse
-from app.schemas.user import PaginatedUserResponse, UserUpdate, UserPasswordUpdate
+from app.schemas.user import UserUpdate, UserPasswordUpdate
+from app.schemas.common import PaginatedResponse
 from app.services.user_service import UserService
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
 
-@router.get("", response_model=PaginatedUserResponse)
+@router.get("", response_model=PaginatedResponse[UserResponse])
 async def list_users(
     page: int = Query(1, ge=1),
     per_page: int = Query(10, ge=1, le=50),
@@ -25,7 +26,7 @@ async def list_users(
     items, total = await service.list_all(page, per_page)
     pages = math.ceil(total / per_page) if total > 0 else 1
 
-    return PaginatedUserResponse(
+    return PaginatedResponse(
         items=[UserResponse.from_model(item) for item in items],
         total=total,
         page=page,
@@ -58,9 +59,6 @@ async def create_user(
     if existing_email:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="El email ya está registrado")
         
-    existing_username = await service.get_by_username(payload.username)
-    if existing_username:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="El nombre de usuario ya está en uso")
 
     user = await service.create(payload)
     # The default create doesn't assign roles but we can call update right away to add them if provided

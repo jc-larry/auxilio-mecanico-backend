@@ -9,14 +9,5 @@ class UserUpdate(BaseModel):
     is_active: bool | None = None
     roles: list[str] | None = None
 
-
-class PaginatedUserResponse(BaseModel):
-    items: list[UserResponse]
-    total: int
-    page: int
-    per_page: int
-    pages: int
-
-
 class UserPasswordUpdate(BaseModel):
     new_password: str = Field(..., min_length=8, max_length=50)

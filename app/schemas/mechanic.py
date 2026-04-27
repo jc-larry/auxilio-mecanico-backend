@@ -1,6 +1,5 @@
 from datetime import datetime
 from enum import Enum
-from typing import Generic, TypeVar
 
 from pydantic import BaseModel, Field
 
@@ -19,11 +18,6 @@ class Specialty(str, Enum):
     FRENOS = "frenos"
     CARROCERIA = "carroceria"
 
-
-class Expertise(str, Enum):
-    SENIOR = "SENIOR"
-    INTERMEDIO = "INTERMEDIO"
-    JUNIOR = "JUNIOR"
 
 
 # ── Mapeos de UI ──
@@ -54,31 +48,21 @@ SPECIALTY_ICONS: dict[str, str] = {
     "carroceria": "directions_car",
 }
 
-EXPERTISE_LABELS: dict[str, str] = {
-    "SENIOR": "Senior",
-    "INTERMEDIO": "Intermedio",
-    "JUNIOR": "Junior",
-}
+
 
 
 # ── Request schemas ──
 
 class MechanicCreate(BaseModel):
     full_name: str = Field(..., min_length=2, max_length=100)
-    phone: str = Field(default="", max_length=20)
     specialty: Specialty = Specialty.GENERAL
-    expertise: Expertise = Expertise.JUNIOR
-    avatar_color: str = Field(default="#091426", max_length=10)
     workshop_id: int | None = None
 
 
 class MechanicUpdate(BaseModel):
     full_name: str | None = Field(default=None, min_length=2, max_length=100)
-    phone: str | None = Field(default=None, max_length=20)
     specialty: Specialty | None = None
-    expertise: Expertise | None = None
     is_available: bool | None = None
-    avatar_color: str | None = Field(default=None, max_length=10)
     workshop_id: int | None = None
 
 
@@ -86,17 +70,12 @@ class MechanicUpdate(BaseModel):
 
 class MechanicResponse(BaseModel):
     id: int
-    employee_code: str
     full_name: str
     initials: str = ""
-    phone: str
     specialty: str
     specialty_label: str = ""
     specialty_icon: str = ""
-    expertise: str
-    expertise_label: str = ""
     is_available: bool
-    avatar_color: str
     created_at: datetime
     updated_at: datetime
     user_id: int
@@ -115,17 +94,12 @@ class MechanicResponse(BaseModel):
 
         return cls(
             id=obj.id,
-            employee_code=obj.employee_code or "",
             full_name=name,
             initials=initials,
-            phone=obj.phone or "",
             specialty=obj.especialidad,
             specialty_label=SPECIALTY_LABELS.get(obj.especialidad, obj.especialidad),
             specialty_icon=SPECIALTY_ICONS.get(obj.especialidad, "build"),
-            expertise=obj.expertise or "JUNIOR",
-            expertise_label=EXPERTISE_LABELS.get(obj.expertise or "JUNIOR", "Junior"),
             is_available=obj.disponible,
-            avatar_color=obj.avatar_color or "#091426",
             created_at=obj.created_at,
             updated_at=obj.updated_at,
             user_id=obj.usuario_id,
@@ -133,15 +107,7 @@ class MechanicResponse(BaseModel):
         )
 
 
-T = TypeVar("T")
 
-
-class PaginatedResponse(BaseModel, Generic[T]):
-    items: list[T]
-    total: int
-    page: int
-    per_page: int
-    pages: int
 
 
 class MechanicStats(BaseModel):

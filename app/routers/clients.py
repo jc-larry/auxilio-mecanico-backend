@@ -10,7 +10,8 @@ from app.core.permissions import PermissionEnum
 from app.models.cliente import Cliente
 from app.models.usuario import Usuario
 from app.models.vehiculo import Vehiculo
-from app.schemas.client import ClientResponse, PaginatedClientResponse
+from app.schemas.client import ClientResponse
+from app.schemas.common import PaginatedResponse
 from app.schemas.vehiculo import VehiculoResponse
 
 router = APIRouter(prefix="/clients", tags=["Clients"])
@@ -24,7 +25,7 @@ async def list_client_vehicles(
     result = await db.execute(select(Vehiculo).where(Vehiculo.cliente_id == client_id))
     return result.scalars().all()
 
-@router.get("", response_model=PaginatedClientResponse)
+@router.get("", response_model=PaginatedResponse[ClientResponse])
 async def list_clients(
     page: int = Query(1, ge=1),
     per_page: int = Query(10, ge=1, le=50),
@@ -58,7 +59,7 @@ async def list_clients(
                     )
                 )
         
-        return PaginatedClientResponse(
+        return PaginatedResponse(
             items=response_items,
             total=total,
             page=page,

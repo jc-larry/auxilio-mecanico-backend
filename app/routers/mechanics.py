@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.dependencies import get_current_user, RequirePermissions
+from app.core.dependencies import get_current_user, RequirePermissions, get_user_taller_id
 from app.core.permissions import PermissionEnum
 from app.models.usuario import Usuario
 from app.schemas.mechanic import (
@@ -12,8 +12,8 @@ from app.schemas.mechanic import (
     MechanicResponse,
     MechanicStats,
     MechanicUpdate,
-    PaginatedResponse,
 )
+from app.schemas.common import PaginatedResponse
 from app.services.mechanic_service import MechanicService
 
 router = APIRouter(prefix="/mechanics", tags=["Mechanics"])
@@ -26,10 +26,11 @@ async def list_mechanics(
     page: int = Query(1, ge=1),
     per_page: int = Query(10, ge=1, le=50),
     db: AsyncSession = Depends(get_db),
-    _: Usuario = Depends(RequirePermissions([PermissionEnum.USUARIOS_VER])),
+    current_user: Usuario = Depends(RequirePermissions([PermissionEnum.USUARIOS_VER])),
 ):
+    taller_id = get_user_taller_id(current_user)
     service = MechanicService(db)
-    items, total = await service.list_all(available, specialty, page, per_page)
+    items, total = await service.list_all(available, specialty, page, per_page, taller_id)
     pages = math.ceil(total / per_page) if total > 0 else 1
 
     return PaginatedResponse(
@@ -44,10 +45,11 @@ async def list_mechanics(
 @router.get("/stats", response_model=MechanicStats)
 async def get_stats(
     db: AsyncSession = Depends(get_db),
-    _: Usuario = Depends(RequirePermissions([PermissionEnum.USUARIOS_VER])),
+    current_user: Usuario = Depends(RequirePermissions([PermissionEnum.USUARIOS_VER])),
 ):
+    taller_id = get_user_taller_id(current_user)
     service = MechanicService(db)
-    return await service.get_stats()
+    return await service.get_stats(taller_id)
 
 
 @router.get("/{mechanic_id}", response_model=MechanicResponse)
@@ -67,10 +69,11 @@ async def get_mechanic(
 async def create_mechanic(
     payload: MechanicCreate,
     db: AsyncSession = Depends(get_db),
-    _: Usuario = Depends(RequirePermissions([PermissionEnum.USUARIOS_CREAR])),
+    current_user: Usuario = Depends(RequirePermissions([PermissionEnum.USUARIOS_CREAR])),
 ):
+    taller_id = get_user_taller_id(current_user)
     service = MechanicService(db)
-    m = await service.create(payload)
+    m = await service.create(payload, taller_id)
     return MechanicResponse.from_model(m)
 
 
@@ -79,10 +82,12 @@ async def update_mechanic(
     mechanic_id: int,
     payload: MechanicUpdate,
     db: AsyncSession = Depends(get_db),
-    _: Usuario = Depends(RequirePermissions([PermissionEnum.USUARIOS_EDITAR])),
+    current_user: Usuario = Depends(RequirePermissions([PermissionEnum.USUARIOS_EDITAR])),
 ):
+    taller_id = get_user_taller_id(current_user)
     service = MechanicService(db)
-    m = await service.update(mechanic_id, payload)
+    # TODO: Podríamos verificar que el mecánico pertenezca al taller del usuario si no es admin
+    m = await service.update(mechanic_id, payload, current_user.id)
     if not m:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Mecánico no encontrado")
     return MechanicResponse.from_model(m)

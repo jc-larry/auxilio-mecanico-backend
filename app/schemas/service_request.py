@@ -1,24 +1,12 @@
 from datetime import datetime
 from enum import Enum
-from typing import Generic, TypeVar
 
 from pydantic import BaseModel, Field
 
 
 # ── Enums ──
 
-class ServiceType(str, Enum):
-    TOWING = "towing"
-    TIRE_CHANGE = "tire_change"
-    BATTERY = "battery"
-    LOCKOUT = "lockout"
-    FUEL = "fuel"
-    DIAGNOSTICS = "diagnostics"
-    BRAKES = "brakes"
-    OIL_CHANGE = "oil_change"
-    TRANSMISSION = "transmission"
-    GENERAL = "general"
-
+# Eliminado: class ServiceType(str, Enum) ya que usaremos el modelo TipoServicio de la DB
 
 class Status(str, Enum):
     PENDIENTE = "PENDIENTE"
@@ -33,42 +21,14 @@ class Priority(str, Enum):
     MEDIA = "media"
     BAJA = "baja"
 
-
-# ── Mapeo de íconos por tipo de servicio ──
-
-SERVICE_ICONS: dict[str, str] = {
-    "towing": "local_shipping",
-    "tire_change": "tire_repair",
-    "battery": "battery_charging_full",
-    "lockout": "lock_open",
-    "fuel": "local_gas_station",
-    "diagnostics": "monitor_heart",
-    "brakes": "auto_fix_high",
-    "oil_change": "oil_barrel",
-    "transmission": "settings",
-    "general": "build",
-}
-
-SERVICE_LABELS: dict[str, str] = {
-    "towing": "Grúa / Remolque",
-    "tire_change": "Cambio de Neumático",
-    "battery": "Servicio de Batería",
-    "lockout": "Apertura de Vehículo",
-    "fuel": "Suministro de Combustible",
-    "diagnostics": "Diagnóstico",
-    "brakes": "Reparación de Frenos",
-    "oil_change": "Cambio de Aceite",
-    "transmission": "Transmisión",
-    "general": "Servicio General",
-}
-
+# SERVICE_LABELS eliminado, se usará el nombre del TipoServicio
 
 # ── Request schemas ──
 
 class ServiceRequestCreate(BaseModel):
     cliente_id: int
     vehiculo_id: int
-    service_type: ServiceType
+    tipo_servicio_id: int
     description: str = Field(default="", max_length=1000)
     location: str = Field(..., min_length=2, max_length=200)
     priority: Priority = Priority.MEDIA
@@ -120,7 +80,7 @@ class ServiceRequestResponse(BaseModel):
         if hasattr(obj, "mecanico") and obj.mecanico and obj.mecanico.usuario:
             assigned_mechanic = obj.mecanico.usuario.nombre
 
-        # Mapeo de estados (legacy usa COMPLETADO, nuevo usa COMPLETADA)
+        # Mapeo de estados
         status_map = {
             "COMPLETADA": "COMPLETADO",
             "CANCELADA": "RECHAZADO",
@@ -130,11 +90,11 @@ class ServiceRequestResponse(BaseModel):
                                 obj.estado.value if hasattr(obj.estado, "value") else obj.estado)
 
         # Determinar el tipo de servicio (legacy usa string, nuevo usa ID/objeto)
-        # Por ahora asumimos que el nuevo modelo tiene el código en tipo_servicio.nombre o similar
         service_type = "general"
+        service_type_label = "Servicio General"
         if hasattr(obj, "tipo_servicio") and obj.tipo_servicio:
-            # Buscar el valor inverso en SERVICE_LABELS o usar el nombre directo
-            service_type = obj.tipo_servicio.nombre
+            service_type = obj.tipo_servicio.nombre.lower().replace(" ", "_")
+            service_type_label = obj.tipo_servicio.nombre
 
         data = {
             "id": obj.id,
@@ -142,7 +102,7 @@ class ServiceRequestResponse(BaseModel):
             "client_name": client_name,
             "vehicle_info": vehicle_info,
             "service_type": service_type,
-            "service_type_label": SERVICE_LABELS.get(service_type, service_type),
+            "service_type_label": service_type_label,
             "service_icon": SERVICE_ICONS.get(service_type, "build"),
             "description": obj.descripcion_problema,
             "location": obj.ubicacion,
@@ -158,15 +118,7 @@ class ServiceRequestResponse(BaseModel):
         return cls(**data)
 
 
-T = TypeVar("T")
 
-
-class PaginatedResponse(BaseModel, Generic[T]):
-    items: list[T]
-    total: int
-    page: int
-    per_page: int
-    pages: int
 
 
 class ServiceRequestStats(BaseModel):

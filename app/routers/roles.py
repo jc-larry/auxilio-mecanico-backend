@@ -10,15 +10,15 @@ from app.schemas.role import (
     RoleCreate, 
     RoleUpdate, 
     RoleResponse, 
-    PaginatedRoleResponse,
     PermissionResponse
 )
+from app.schemas.common import PaginatedResponse
 from app.services.role_service import RoleService
 
 router = APIRouter(prefix="/roles", tags=["Roles"])
 permissions_router = APIRouter(prefix="/permissions", tags=["Permissions"])
 
-@router.get("", response_model=PaginatedRoleResponse)
+@router.get("", response_model=PaginatedResponse[RoleResponse])
 async def list_roles(
     page: int = Query(1, ge=1),
     per_page: int = Query(10, ge=1, le=50),
@@ -29,7 +29,7 @@ async def list_roles(
     items, total = await service.list_all(page, per_page)
     pages = math.ceil(total / per_page) if total > 0 else 1
     
-    return PaginatedRoleResponse(
+    return PaginatedResponse(
         items=[RoleResponse.from_attributes(item) for item in items],
         total=total,
         page=page,

@@ -1,7 +1,5 @@
 from pydantic import BaseModel
-from typing import Generic, TypeVar
 
-T = TypeVar("T")
 
 class ClientResponse(BaseModel):
     id: int
@@ -11,9 +9,4 @@ class ClientResponse(BaseModel):
 
     model_config = {"from_attributes": True}
 
-class PaginatedClientResponse(BaseModel):
-    items: list[ClientResponse]
-    total: int
-    page: int
-    per_page: int
-    pages: int
+
