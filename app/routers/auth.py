@@ -15,6 +15,7 @@ from app.schemas.auth import (
     UserResponse,
 )
 from app.services.user_service import UserService
+from app.services.bitacora_service import BitacoraService
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 settings = get_settings()
@@ -27,14 +28,10 @@ async def register(payload: UserCreate, db: AsyncSession = Depends(get_db)) -> U
     if await service.get_by_email(payload.email):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="El correo ya está registrado")
 
-    if await service.get_by_username(payload.username):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="El usuario ya está registrado")
 
     user = await service.create(payload)
     return UserResponse.from_model(user)
 
-
-from app.services.bitacora_service import BitacoraService
 
 @router.post("/login", response_model=TokenResponse)
 async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)) -> TokenResponse:
