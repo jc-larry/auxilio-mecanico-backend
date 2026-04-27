@@ -60,6 +60,12 @@ class UserService:
             user.roles.append(default_role)
 
         self.db.add(user)
+        await self.db.flush()
+
+        from app.models.cliente import Cliente
+        new_client = Cliente(usuario_id=user.id)
+        self.db.add(new_client)
+
         await self.db.commit()
         
         # Registro en Bitácora

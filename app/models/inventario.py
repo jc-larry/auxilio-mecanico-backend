@@ -35,7 +35,7 @@ class InventarioRepuesto(Base):
         Integer, ForeignKey("inventarios.id"), nullable=False
     )
     repuesto_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("repuestos.id"), nullable=False
+        Integer, ForeignKey("repuestos.id", ondelete="CASCADE"), nullable=False
     )
     cantidad: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     min_stock: Mapped[int] = mapped_column(Integer, nullable=False, default=5)

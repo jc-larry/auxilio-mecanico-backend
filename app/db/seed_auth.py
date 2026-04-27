@@ -45,14 +45,29 @@ async def seed_auth():
         roles_config = {
             RoleEnum.ADMINISTRADOR: [p.value for p in PermissionEnum],
             RoleEnum.PROPIETARIO: [       
+                # USUARIOS
+                PermissionEnum.USUARIOS_VER.value,
+                PermissionEnum.USUARIOS_CREAR.value,
+                PermissionEnum.USUARIOS_EDITAR.value,
+                PermissionEnum.USUARIOS_ELIMINAR.value,
+
                 # SERVICIOS
                 PermissionEnum.SERVICIOS_VER.value,
                 PermissionEnum.SERVICIOS_CREAR.value,
                 PermissionEnum.SERVICIOS_EDITAR.value,
                 PermissionEnum.SERVICIOS_ELIMINAR.value,
                 
+                # CLIENTES
+                PermissionEnum.CLIENTES_VER.value,
+                PermissionEnum.CLIENTES_CREAR.value,
+                PermissionEnum.CLIENTES_EDITAR.value,
+                PermissionEnum.CLIENTES_ELIMINAR.value,
+
                 # VEHÍCULOS
                 PermissionEnum.VEHICULOS_VER.value,
+                PermissionEnum.VEHICULOS_CREAR.value,
+                PermissionEnum.VEHICULOS_EDITAR.value,
+                PermissionEnum.VEHICULOS_ELIMINAR.value,
                 
                 # SOLICITUDES
                 PermissionEnum.SOLICITUDES_VER.value,
@@ -65,6 +80,7 @@ async def seed_auth():
                 # INVENTARIO
                 PermissionEnum.INVENTARIO_VER.value,
                 PermissionEnum.INVENTARIO_AGREGAR.value,
+                PermissionEnum.INVENTARIO_EDITAR.value,
                 PermissionEnum.INVENTARIO_AJUSTAR_STOCK.value,
                 PermissionEnum.INVENTARIO_ELIMINAR.value,
                 
@@ -84,11 +100,14 @@ async def seed_auth():
                 PermissionEnum.TALLERES_CREAR.value,
             ],
             RoleEnum.MECANICO: [
+                PermissionEnum.USUARIOS_VER.value,
                 PermissionEnum.SOLICITUDES_VER.value,
                 PermissionEnum.SOLICITUDES_ASIGNAR_MECANICO.value,
                 PermissionEnum.SOLICITUDES_CAMBIAR_ESTADO.value,
                 PermissionEnum.INVENTARIO_VER.value,
+                PermissionEnum.INVENTARIO_AJUSTAR_STOCK.value,
                 PermissionEnum.VEHICULOS_VER.value,
+                PermissionEnum.SERVICIOS_VER.value,
             ],
             RoleEnum.CLIENTE: [
                 PermissionEnum.VEHICULOS_VER.value,
@@ -156,5 +175,32 @@ async def seed_auth():
             logger.info(f"Se ha asignado el rol ADMINISTRADOR al usuario {admin_user.username}")
         else:
             logger.info("El usuario ya tiene el rol ADMINISTRADOR.")
+
+        # 5. Crear tipos de servicio por defecto si no existen
+        logger.info("Verificando tipos de servicio por defecto...")
+        from app.models.tipo_servicio import TipoServicio
+        from app.schemas.service_request import SERVICE_ICONS
+        
+        default_services = [
+            ("Grúa / Remolque", "Servicio de grúa o remolque para vehículos averiados", 50.0),
+            ("Cambio de Neumático", "Sustitución de neumáticos pinchados o dañados", 15.0),
+            ("Servicio de Batería", "Recarga o cambio de batería", 20.0),
+            ("Apertura de Vehículo", "Asistencia para llaves olvidadas dentro del vehículo", 30.0),
+            ("Suministro de Combustible", "Entrega de combustible de emergencia", 10.0),
+            ("Diagnóstico", "Diagnóstico general de fallas mecánicas", 25.0),
+            ("Reparación de Frenos", "Revisión y cambio de pastillas o discos de freno", 60.0),
+            ("Cambio de Aceite", "Sustitución de aceite y filtro", 40.0),
+            ("Transmisión", "Revisión y mantenimiento de transmisión", 80.0),
+            ("Servicio General", "Mantenimiento preventivo general", 45.0),
+        ]
+        
+        for name, desc, price in default_services:
+            result = await db.execute(select(TipoServicio).where(TipoServicio.nombre == name))
+            if not result.scalar_one_or_none():
+                new_tipo = TipoServicio(nombre=name, descripcion=desc, precio_base=price)
+                db.add(new_tipo)
+        await db.commit()
+        logger.info("Tipos de servicio por defecto verificados/creados.")
+
 if __name__ == "__main__":
     asyncio.run(seed_auth())

@@ -9,6 +9,7 @@ from app.models.rol import Permiso, Rol, roles_permisos, usuario_roles  # noqa: 
 from app.models.cliente import Cliente  # noqa: F401
 from app.models.vehiculo import Vehiculo  # noqa: F401
 from app.models.mecanico import Mecanico  # noqa: F401
+from app.models.propietario import Propietario  # noqa: F401
 from app.models.taller import Taller  # noqa: F401
 from app.models.tipo_servicio import TipoServicio  # noqa: F401
 from app.models.solicitud_servicio import (  # noqa: F401
@@ -20,6 +21,7 @@ from app.models.calificacion import Calificacion  # noqa: F401
 from app.models.pago import Factura, Pago  # noqa: F401
 from app.models.repuesto import Repuesto  # noqa: F401
 from app.models.inventario import Inventario, InventarioRepuesto  # noqa: F401
+from app.models.bitacora import Bitacora  # noqa: F401
 
 # Aliases — retrocompatibilidad con servicios existentes
 User = Usuario

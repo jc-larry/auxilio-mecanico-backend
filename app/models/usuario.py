@@ -11,6 +11,7 @@ from app.core.database import Base
 if TYPE_CHECKING:
     from app.models.cliente import Cliente
     from app.models.mecanico import Mecanico
+    from app.models.propietario import Propietario
     from app.models.rol import Rol
 
 
@@ -49,5 +50,8 @@ class Usuario(Base):
         back_populates="usuario", uselist=False
     )
     mecanico: Mapped["Mecanico | None"] = relationship(
+        back_populates="usuario", uselist=False
+    )
+    propietario: Mapped["Propietario | None"] = relationship(
         back_populates="usuario", uselist=False
     )

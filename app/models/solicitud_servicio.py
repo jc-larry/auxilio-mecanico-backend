@@ -121,7 +121,7 @@ class SolicitudRepuesto(Base):
         Integer, ForeignKey("solicitudes_servicio.id"), nullable=False
     )
     repuesto_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("repuestos.id"), nullable=False
+        Integer, ForeignKey("repuestos.id", ondelete="CASCADE"), nullable=False
     )
     cantidad: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     precio_unitario: Mapped[Decimal] = mapped_column(

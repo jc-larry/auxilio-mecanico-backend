@@ -20,9 +20,13 @@ class PermissionEnum(str, Enum):
     CLIENTES_CREAR = "clientes.crear"
     CLIENTES_VER = "clientes.ver"
     CLIENTES_EDITAR = "clientes.editar"
-    VEHICULOS_REGISTRAR = "vehiculos.registrar"
+    CLIENTES_ELIMINAR = "clientes.eliminar"
+
+    # VEHICULOS
+    VEHICULOS_CREAR = "vehiculos.crear"
     VEHICULOS_VER = "vehiculos.ver"
     VEHICULOS_EDITAR = "vehiculos.editar"
+    VEHICULOS_ELIMINAR = "vehiculos.eliminar"
 
     # Servicios
     SERVICIOS_VER = "servicios.ver"
