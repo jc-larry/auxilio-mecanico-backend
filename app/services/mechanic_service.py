@@ -19,39 +19,30 @@ class MechanicService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
-    async def _generate_code(self) -> str:
-        result = await self.db.execute(select(func.count(Mecanico.id)))
-        count = result.scalar_one()
-        return f"MEC-{count + 1:04d}"
-
-    async def _username_exists(self, username: str) -> bool:
+    async def _email_exists(self, email: str) -> bool:
         from app.models.usuario import Usuario
-        result = await self.db.execute(select(Usuario).where(Usuario.username == username))
+        result = await self.db.execute(select(Usuario).where(Usuario.email == email))
         return result.scalar_one_or_none() is not None
 
-    async def create(self, data: MechanicCreate) -> Mecanico:
+    async def create(self, data: MechanicCreate, taller_id: int | None = None) -> Mecanico:
         from app.models.usuario import Usuario
         from app.models.rol import Rol
         from app.core.permissions import RoleEnum
         from app.core.security import hash_password
 
         # 1. Crear un Usuario para este mecánico
-        # Generar username único a partir del nombre
-        base_username = data.full_name.lower().replace(" ", "")
-        username = base_username
+        # Generar email único a partir del nombre
+        base_email = f"{data.full_name.lower().replace(' ', '')}@mail.com"
+        email = base_email
         counter = 1
-        while await self._username_exists(username):
-            username = f"{base_username}{counter}"
+        while await self._email_exists(email):
+            email = f"{data.full_name.lower().replace(' ', '')}{counter}@mail.com"
             counter += 1
             
-        # Email ficticio (requerido por el modelo)
-        email = f"{username}@mail.com"
-        
         user = Usuario(
             nombre=data.full_name,
-            username=username,
             email=email,
-            telefono=data.phone,
+            telefono=getattr(data, "phone", ""),
             hashed_password=hash_password("Mecanico123!"), # Password por defecto
             estado=True
         )
@@ -65,16 +56,10 @@ class MechanicService:
         self.db.add(user)
         await self.db.flush() # Para obtener el user.id
         
-        # 2. Crear el registro de Mecánico
-        code = await self._generate_code()
         mechanic = Mecanico(
-            employee_code=code,
             usuario_id=user.id,
-            taller_id=data.workshop_id,
-            phone=data.phone,
+            taller_id=taller_id if taller_id is not None else data.workshop_id,
             especialidad=data.specialty.value,
-            expertise=data.expertise.value,
-            avatar_color=data.avatar_color,
             disponible=True,
         )
         self.db.add(mechanic)
@@ -120,7 +105,7 @@ class MechanicService:
         total_result = await self.db.execute(count_query)
         total = total_result.scalar_one()
 
-        query = query.order_by(Mecanico.employee_code.asc())
+        query = query.order_by(Mecanico.id.asc())
         query = query.offset((page - 1) * per_page).limit(per_page)
 
         result = await self.db.execute(query)
@@ -172,7 +157,7 @@ class MechanicService:
                 accion="CAMBIAR_DISPONIBILIDAD",
                 entidad="Mecanico",
                 entidad_id=str(mechanic.id),
-                detalles={"disponible": mechanic.disponible, "codigo": mechanic.employee_code}
+                detalles={"disponible": mechanic.disponible}
             )
             await self.db.commit()
             

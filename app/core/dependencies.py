@@ -10,6 +10,20 @@ from app.services.user_service import UserService
 
 bearer_scheme = HTTPBearer()
 
+def get_user_taller_id(user: Usuario) -> int | None:
+    is_admin = any(r.nombre == "Administrador" for r in getattr(user, "roles", []))
+    if is_admin:
+        return None
+
+    if getattr(user, "mecanico", None):
+        return user.mecanico.taller_id
+    
+    if getattr(user, "propietario", None):
+        if user.propietario.talleres:
+            return user.propietario.talleres[0].id
+            
+    return None
+
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),

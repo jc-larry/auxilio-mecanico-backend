@@ -16,7 +16,13 @@ class PermissionEnum(str, Enum):
     USUARIOS_ELIMINAR = "usuarios.eliminar"
     USUARIOS_ASIGNAR_ROL = "usuarios.asignar_rol"
 
-    # Clientes & Vehículos
+    # ROLES
+    ROLES_VER = "roles.ver"
+    ROLES_CREAR = "roles.crear"
+    ROLES_EDITAR = "roles.editar"
+    ROLES_ELIMINAR = "roles.eliminar"
+
+    # Clientes
     CLIENTES_CREAR = "clientes.crear"
     CLIENTES_VER = "clientes.ver"
     CLIENTES_EDITAR = "clientes.editar"
