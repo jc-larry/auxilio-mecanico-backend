@@ -1,3 +1,4 @@
+import os
 from pydantic_settings import BaseSettings
 from functools import lru_cache
 
@@ -19,17 +20,17 @@ class Settings(BaseSettings):
     # CORS
     allowed_origins: list[str] = ["http://localhost:4200"]
 
-    # Anthropic (Claude)
-    anthropic_api_key: str = ""
-    anthropic_model: str = "claude-sonnet-4-20250514"
+    # Google Gemini
+    google_api_key: str = os.getenv("GOOGLE_API_KEY")
+    google_model: str = os.getenv("GOOGLE_MODEL")
 
     # Cloudinary
-    cloudinary_cloud_name: str = ""
-    cloudinary_api_key: str = ""
-    cloudinary_api_secret: str = ""
+    cloudinary_cloud_name: str = os.getenv("CLOUDINARY_CLOUD_NAME")
+    cloudinary_api_key: str = os.getenv("CLOUDINARY_API_KEY")
+    cloudinary_api_secret: str = os.getenv("CLOUDINARY_API_SECRET")
 
     # MercadoPago
-    mercadopago_access_token: str = ""
+    mercadopago_access_token: str = os.getenv("MERCADOPAGO_ACCESS_TOKEN")
     mercadopago_back_urls_success: str = "https://rapidrescue.app/payment/success"
     mercadopago_back_urls_failure: str = "https://rapidrescue.app/payment/failure"
     mercadopago_back_urls_pending: str = "https://rapidrescue.app/payment/pending"

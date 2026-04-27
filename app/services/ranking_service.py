@@ -11,39 +11,49 @@ from app.schemas.ranking import (
 
 logger = logging.getLogger(__name__)
 
-ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
+
 
 
 class RankingService:
-    """Genera un ranking de talleres usando Claude como LLM."""
+    """Genera un ranking de talleres usando Google Gemini como LLM."""
 
     def __init__(self) -> None:
         self.settings = get_settings()
 
     async def rank_workshops(self, payload: RankingRequest) -> list[WorkshopRankingItem]:
-        """Llama a Claude y devuelve los talleres rankeados."""
+        """Llama a Gemini y devuelve los talleres rankeados."""
         prompt = self._build_prompt(payload)
+        
+        # URL de Gemini API
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.settings.google_model}:generateContent?key={self.settings.google_api_key}"
 
         async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.post(
-                ANTHROPIC_API_URL,
-                headers={
-                    "Content-Type": "application/json",
-                    "x-api-key": self.settings.anthropic_api_key,
-                    "anthropic-version": "2023-06-01",
-                },
+                url,
+                headers={"Content-Type": "application/json"},
                 json={
-                    "model": self.settings.anthropic_model,
-                    "max_tokens": 2048,
-                    "messages": [
-                        {"role": "user", "content": prompt},
-                    ],
+                    "contents": [{
+                        "parts": [{"text": prompt}]
+                    }],
+                    "generationConfig": {
+                        "temperature": 0.2,
+                        "topP": 0.8,
+                        "topK": 40,
+                        "maxOutputTokens": 2048,
+                    }
                 },
             )
+            if response.is_error:
+                logger.error("Error de la API de Gemini: %s - %s", response.status_code, response.text)
             response.raise_for_status()
 
         data = response.json()
-        llm_text = data["content"][0]["text"]
+        
+        try:
+            llm_text = data["candidates"][0]["content"]["parts"][0]["text"]
+        except (KeyError, IndexError) as exc:
+            logger.error("Error al extraer texto de la respuesta de Gemini: %s", exc)
+            llm_text = ""
 
         return self._parse_response(llm_text, payload)
 

@@ -20,17 +20,17 @@ async def rank_workshops(
     payload: RankingRequest,
     _: Usuario = Depends(RequireRoles([RoleEnum.CLIENTE, RoleEnum.ADMINISTRADOR])),
 ):
-    """Genera un ranking de talleres usando Claude como LLM.
+    """Genera un ranking de talleres usando Google Gemini como LLM.
 
     Recibe los datos de la solicitud y la lista de talleres candidatos,
-    los envía a Claude para su análisis y devuelve los talleres ordenados
+    los envía a Gemini para su análisis y devuelve los talleres ordenados
     por puntaje de compatibilidad.
     """
     settings = get_settings()
-    if not settings.anthropic_api_key:
+    if not settings.google_api_key:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="El servicio de IA no está configurado. Configura ANTHROPIC_API_KEY en el .env",
+            detail="El servicio de IA no está configurado. Configura GOOGLE_API_KEY en el .env",
         )
 
     try:
@@ -38,10 +38,10 @@ async def rank_workshops(
         rankings = await service.rank_workshops(payload)
         return RankingResponse(rankings=rankings)
     except HTTPStatusError as exc:
-        logger.error("Error al llamar a Anthropic: %s", exc)
+        logger.error("Error al llamar a Gemini: %s", exc)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Error al conectar con el servicio de IA",
+            detail="Error al conectar con el servicio de IA (Gemini)",
         )
     except Exception as exc:
         logger.error("Error inesperado en ranking: %s", exc)
