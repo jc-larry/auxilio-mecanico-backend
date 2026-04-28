@@ -1,5 +1,6 @@
 import math
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.dependencies import RequirePermissions
@@ -13,6 +14,7 @@ from app.schemas.common import PaginatedResponse
 from app.services.workshop_service import WorkshopService
 from app.models.usuario import Usuario
 from app.models.propietario import Propietario
+from app.models.taller import Taller
 
 router = APIRouter(prefix="/workshops", tags=["Workshops"])
 
@@ -81,6 +83,15 @@ async def create_workshop(
         
         if current_user.propietario:
             propietario_id = current_user.propietario.id
+            # Enforce 1-workshop limit for Propietarios
+            existing_workshop = await service.db.execute(
+                select(Taller).where(Taller.propietario_id == propietario_id)
+            )
+            if existing_workshop.scalars().first():
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Un Propietario solo puede registrar un taller."
+                )
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
