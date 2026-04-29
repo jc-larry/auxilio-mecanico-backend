@@ -10,7 +10,7 @@ from app.services.bitacora_service import BitacoraService
 
 router = APIRouter(prefix="/bitacora", tags=["Bitácora"])
 
-@router.get("/", response_model=PaginatedResponse[BitacoraResponse])
+@router.get("", response_model=PaginatedResponse[BitacoraResponse])
 async def list_logs(
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),

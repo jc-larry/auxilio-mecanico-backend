@@ -14,11 +14,12 @@ class BitacoraUsuarioSimple(BaseModel):
 
     @classmethod
     def from_model(cls, obj) -> "BitacoraUsuarioSimple":
+        if not obj:
+            return None
         return cls(
-            id=obj.id,
-            email=obj.email,
-
-            full_name=obj.nombre,
+            id=getattr(obj, "id", 0),
+            email=getattr(obj, "email", "n/a"),
+            full_name=getattr(obj, "nombre", "Usuario Desconocido"),
         )
 
 
@@ -37,7 +38,7 @@ class BitacoraResponse(BaseModel):
     @classmethod
     def from_model(cls, obj) -> "BitacoraResponse":
         usuario = None
-        if obj.usuario:
+        if hasattr(obj, "usuario") and obj.usuario:
             usuario = BitacoraUsuarioSimple.from_model(obj.usuario)
 
         return cls(

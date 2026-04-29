@@ -36,27 +36,25 @@ class BitacoraService:
         """
         Lista los registros de la bitácora con paginación.
         """
-        # Calcular total
-        total_stmt = select(func.count()).select_from(Bitacora)
-        total_res = await self.db.execute(total_stmt)
-        total = total_res.scalar_one()
+        offset = (page - 1) * per_page
+
+        # Consulta base con carga de usuario
+        from sqlalchemy.orm import selectinload
+        query = select(Bitacora).options(selectinload(Bitacora.usuario))
+        
+        # Calcular total usando una subconsulta para ser exactos
+        count_query = select(func.count()).select_from(Bitacora)
+        total = (await self.db.execute(count_query)).scalar() or 0
 
         pages = math.ceil(total / per_page) if total > 0 else 1
         if page > pages:
             page = pages
-            
-        offset = (page - 1) * per_page
+            offset = (page - 1) * per_page
 
-        # Obtener items
-        stmt = (
-            select(Bitacora)
-            .options(joinedload(Bitacora.usuario))
-            .order_by(desc(Bitacora.fecha_hora))
-            .offset(offset)
-            .limit(per_page)
-        )
+        # Obtener items ordenados por fecha descendente
+        stmt = query.order_by(desc(Bitacora.fecha_hora)).offset(offset).limit(per_page)
         res = await self.db.execute(stmt)
-        items = res.scalars().all()
+        items = list(res.scalars().all())
 
         return {
             "items": items,
