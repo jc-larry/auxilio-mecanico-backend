@@ -108,11 +108,13 @@ async def seed_auth():
                 PermissionEnum.INVENTARIO_AJUSTAR_STOCK.value,
                 PermissionEnum.VEHICULOS_VER.value,
                 PermissionEnum.SERVICIOS_VER.value,
+                PermissionEnum.TALLERES_VER.value,
             ],
             RoleEnum.CLIENTE: [
                 PermissionEnum.VEHICULOS_VER.value,
                 PermissionEnum.SOLICITUDES_CREAR.value,
                 PermissionEnum.SOLICITUDES_VER.value,
+                PermissionEnum.TALLERES_VER.value,
             ]
 
         }

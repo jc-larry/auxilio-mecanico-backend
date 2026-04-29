@@ -68,6 +68,10 @@ class SolicitudServicio(Base):
     progreso: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     usuario_id: Mapped[int] = mapped_column(Integer, ForeignKey("usuarios.id"), nullable=False)
 
+    # Attachments
+    url_imagen: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    url_audio: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
     # ── Relaciones ───────────────────────────────────────────────────
     cliente: Mapped["Cliente"] = relationship(back_populates="solicitudes")
     taller: Mapped["Taller | None"] = relationship(back_populates="solicitudes")

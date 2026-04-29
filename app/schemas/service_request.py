@@ -32,6 +32,8 @@ class ServiceRequestCreate(BaseModel):
     description: str = Field(default="", max_length=1000)
     location: str = Field(..., min_length=2, max_length=200)
     priority: Priority = Priority.MEDIA
+    url_imagen: str | None = None
+    url_audio: str | None = None
 
 
 class ServiceRequestUpdate(BaseModel):
@@ -62,6 +64,8 @@ class ServiceRequestResponse(BaseModel):
     updated_at: datetime
     completed_at: datetime | None = None
     user_id: int
+    url_imagen: str | None = None
+    url_audio: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -96,6 +100,20 @@ class ServiceRequestResponse(BaseModel):
             service_type = obj.tipo_servicio.nombre.lower().replace(" ", "_")
             service_type_label = obj.tipo_servicio.nombre
 
+        # Mapa de iconos según el tipo de servicio
+        SERVICE_ICONS = {
+            "grúa_/_remolque": "local_shipping",
+            "cambio_de_neumático": "tire_repair",
+            "servicio_de_batería": "battery_charging_full",
+            "apertura_de_vehículo": "lock_open",
+            "suministro_de_combustible": "local_gas_station",
+            "diagnóstico": "biotech",
+            "reparación_de_frenos": "car_repair",
+            "cambio_de_aceite": "oil_barrel",
+            "transmisión": "rebase_edit",
+            "servicio_general": "build"
+        }
+
         data = {
             "id": obj.id,
             "code": obj.codigo,
@@ -114,6 +132,8 @@ class ServiceRequestResponse(BaseModel):
             "updated_at": obj.fecha_creacion, # Simplificación
             "completed_at": obj.fecha_fin,
             "user_id": obj.usuario_id,
+            "url_imagen": obj.url_imagen,
+            "url_audio": obj.url_audio,
         }
         return cls(**data)
 

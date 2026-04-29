@@ -58,6 +58,8 @@ class ServiceRequestService:
                 estado=EstadoSolicitud.PENDIENTE,
                 progreso=0,
                 usuario_id=user_id,
+                url_imagen=data.url_imagen,
+                url_audio=data.url_audio,
             )
             self.db.add(sr)
             await self.db.commit()
