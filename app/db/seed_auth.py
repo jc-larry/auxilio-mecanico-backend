@@ -178,7 +178,6 @@ async def seed_auth():
         # 5. Crear tipos de servicio por defecto si no existen
         logger.info("Verificando tipos de servicio por defecto...")
         from app.models.tipo_servicio import TipoServicio
-        from app.schemas.service_request import SERVICE_ICONS
         
         default_services = [
             ("Grúa / Remolque", "Servicio de grúa o remolque para vehículos averiados", 50.0),

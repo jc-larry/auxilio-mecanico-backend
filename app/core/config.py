@@ -1,4 +1,5 @@
 import os
+from typing import Optional
 from pydantic_settings import BaseSettings
 from functools import lru_cache
 
@@ -18,19 +19,19 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://postgres:1234@localhost:5432/auxilio_mecanico_db"
 
     # CORS
-    allowed_origins: list[str] = ["http://localhost:4200"]
+    allowed_origins: list[str] = ["*"]  # Permitir todos para desarrollo local
 
     # Google Gemini
-    google_api_key: str = os.getenv("GOOGLE_API_KEY")
-    google_model: str = os.getenv("GOOGLE_MODEL")
+    google_api_key: Optional[str] = None
+    google_model: Optional[str] = None
 
     # Cloudinary
-    cloudinary_cloud_name: str = os.getenv("CLOUDINARY_CLOUD_NAME")
-    cloudinary_api_key: str = os.getenv("CLOUDINARY_API_KEY")
-    cloudinary_api_secret: str = os.getenv("CLOUDINARY_API_SECRET")
+    cloudinary_cloud_name: Optional[str] = None
+    cloudinary_api_key: Optional[str] = None
+    cloudinary_api_secret: Optional[str] = None
 
     # MercadoPago
-    mercadopago_access_token: str = os.getenv("MERCADOPAGO_ACCESS_TOKEN")
+    mercadopago_access_token: Optional[str] = None
     mercadopago_back_urls_success: str = "https://rapidrescue.app/payment/success"
     mercadopago_back_urls_failure: str = "https://rapidrescue.app/payment/failure"
     mercadopago_back_urls_pending: str = "https://rapidrescue.app/payment/pending"
